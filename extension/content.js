@@ -2164,13 +2164,6 @@
     );
 
 
-    term.write(
-      `\x1b[90m` +
-      `[ChatDock] ${meta.label} / ${meta.tmux}` +
-      `\x1b[0m\r\n`
-    );
-
-
     const t = {
       ...meta,
       term,

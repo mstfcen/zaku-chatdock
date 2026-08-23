@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import codecs
 import fcntl
 import json
 import os
@@ -37,7 +38,9 @@ CONFIG_PATH = (
 
 DEFAULT_REMOTE_SSH_HOST = "chatdock-remote"
 
-CHATDOCK_NATIVE_VERSION = "0.8.2"
+CHATDOCK_NATIVE_VERSION = "0.8.3"
+
+CHATDOCK_TMUX_SOCKET = "chatdock"
 
 NATIVE_UPDATE_MANIFEST = (
     "https://raw.githubusercontent.com/"
@@ -211,11 +214,185 @@ def ssh_command(
     return command
 
 
+
+def local_tmux_command(
+    *args: str,
+) -> list[str]:
+    """
+    ChatDock owns a dedicated tmux server.
+
+    This isolates terminal negotiation/server options from the
+    user's normal tmux server and ~/.tmux.conf state.
+    """
+    return [
+        "tmux",
+        "-L",
+        CHATDOCK_TMUX_SOCKET,
+        *args,
+    ]
+
+
+def legacy_local_tmux_cwd(
+    tmux_name: str,
+) -> str | None:
+    """
+    During the v0.8 -> v0.9 migration, preserve the working
+    directory of an existing ChatDock session on the legacy
+    default tmux server. The legacy session itself is not killed.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "tmux",
+                "display-message",
+                "-p",
+                "-t",
+                tmux_name,
+                "#{pane_current_path}",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+
+        cwd = result.stdout.strip()
+
+        if (
+            result.returncode == 0
+            and cwd
+            and os.path.isdir(cwd)
+        ):
+            return cwd
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+    ):
+        pass
+
+    return None
+
+
+def configure_local_tmux_server() -> None:
+    """
+    Configure only the ChatDock tmux server.
+
+    assume-paste-time=0 is important for browser terminals:
+    xterm.js may answer several terminal capability queries in
+    one fast burst. Those bytes must be parsed as terminal
+    responses rather than guessed to be pasted pane input.
+    """
+    commands = [
+        (
+            "set-option",
+            "-s",
+            "escape-time",
+            "500",
+        ),
+        (
+            "set-option",
+            "-s",
+            "assume-paste-time",
+            "0",
+        ),
+        (
+            "set-option",
+            "-g",
+            "default-terminal",
+            "tmux-256color",
+        ),
+        (
+            "set-option",
+            "-g",
+            "status",
+            "off",
+        ),
+    ]
+
+    for args in commands:
+        result = subprocess.run(
+            local_tmux_command(*args),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                "could not configure ChatDock tmux: "
+                + " ".join(args)
+            )
+
+
+def ensure_local_tmux_session(
+    tmux_name: str,
+) -> None:
+    """
+    Ensure a persistent ChatDock-owned local session exists.
+
+    Existing v0.8 sessions are migrated non-destructively:
+    the old session stays on the default tmux server while the
+    new ChatDock server starts the replacement at the same cwd.
+    """
+    exists = subprocess.run(
+        local_tmux_command(
+            "has-session",
+            "-t",
+            tmux_name,
+        ),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        timeout=2,
+        check=False,
+    )
+
+    if exists.returncode != 0:
+        cwd = (
+            legacy_local_tmux_cwd(
+                tmux_name
+            )
+            or str(Path.home())
+        )
+
+        created = subprocess.run(
+            local_tmux_command(
+                "new-session",
+                "-d",
+                "-s",
+                tmux_name,
+                "-c",
+                cwd,
+            ),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+
+        if created.returncode != 0:
+            raise RuntimeError(
+                "could not create ChatDock tmux session: "
+                + created.stderr.strip()
+            )
+
+    configure_local_tmux_server()
+
+
 def terminal_reader(
     session_id: str,
     fd: int,
     pid: int,
 ) -> None:
+    decoder = codecs.getincrementaldecoder(
+        "utf-8"
+    )(
+        errors="replace"
+    )
+
     try:
         while True:
             ready, _, _ = select.select(
@@ -237,16 +414,18 @@ def terminal_reader(
                 if not data:
                     break
 
-                send(
-                    {
-                        "type": "output",
-                        "session": session_id,
-                        "data": data.decode(
-                            "utf-8",
-                            "replace",
-                        ),
-                    }
+                text = decoder.decode(
+                    data
                 )
+
+                if text:
+                    send(
+                        {
+                            "type": "output",
+                            "session": session_id,
+                            "data": text,
+                        }
+                    )
 
             try:
                 done, status = os.waitpid(
@@ -271,6 +450,23 @@ def terminal_reader(
                 break
 
     finally:
+        tail = decoder.decode(
+            b"",
+            final=True,
+        )
+
+        if tail:
+            try:
+                send(
+                    {
+                        "type": "output",
+                        "session": session_id,
+                        "data": tail,
+                    }
+                )
+            except Exception:
+                pass
+
         with SESSIONS_LOCK:
             current = SESSIONS.get(
                 session_id
@@ -357,6 +553,23 @@ def open_session(
         )
         return
 
+    if host == LOCAL_HOST:
+        try:
+            ensure_local_tmux_session(
+                tmux_name
+            )
+        except Exception as exc:
+            send(
+                {
+                    "type": "error",
+                    "session": session_id,
+                    "error":
+                        "ChatDock tmux setup failed: "
+                        + str(exc),
+                }
+            )
+            return
+
     pid, fd = pty.fork()
 
     if pid == 0:
@@ -373,13 +586,11 @@ def open_session(
             if host == LOCAL_HOST:
                 os.execvpe(
                     "tmux",
-                    [
-                        "tmux",
-                        "new-session",
-                        "-A",
-                        "-s",
+                    local_tmux_command(
+                        "attach-session",
+                        "-t",
                         tmux_name,
-                    ],
+                    ),
                     environment,
                 )
 
@@ -494,7 +705,9 @@ def tmux_cwd(
         ]
 
         if host == LOCAL_HOST:
-            command = tmux_args
+            command = local_tmux_command(
+                *tmux_args[1:]
+            )
             timeout = 4
         else:
             command = ssh_command(
@@ -648,6 +861,14 @@ def exec_worker(
 
         assert process.stdout is not None
 
+        exec_decoder = (
+            codecs.getincrementaldecoder(
+                "utf-8"
+            )(
+                errors="replace"
+            )
+        )
+
         while True:
             chunk = process.stdout.read(
                 4096
@@ -656,15 +877,32 @@ def exec_worker(
             if not chunk:
                 break
 
+            text = exec_decoder.decode(
+                chunk
+            )
+
+            if text:
+                send(
+                    {
+                        "type": "exec_output",
+                        "session": session_id,
+                        "run_id": run_id,
+                        "data": text,
+                    }
+                )
+
+        tail = exec_decoder.decode(
+            b"",
+            final=True,
+        )
+
+        if tail:
             send(
                 {
                     "type": "exec_output",
                     "session": session_id,
                     "run_id": run_id,
-                    "data": chunk.decode(
-                        "utf-8",
-                        "replace",
-                    ),
+                    "data": tail,
                 }
             )
 
@@ -695,29 +933,14 @@ def exec_worker(
 
 def list_sessions() -> None:
     sessions: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
 
-    for host in (
-        LOCAL_HOST,
-        REMOTE_HOST,
-    ):
+    def collect(
+        host: str,
+        command: list[str],
+        timeout: int,
+    ) -> None:
         try:
-            tmux_args = [
-                "tmux",
-                "list-sessions",
-                "-F",
-                "#{session_name}",
-            ]
-
-            if host == LOCAL_HOST:
-                command = tmux_args
-                timeout = 4
-            else:
-                command = ssh_command(
-                    *tmux_args,
-                    timeout=5,
-                )
-                timeout = 7
-
             result = subprocess.run(
                 command,
                 stdout=subprocess.PIPE,
@@ -728,14 +951,23 @@ def list_sessions() -> None:
             )
 
             if result.returncode != 0:
-                continue
+                return
 
             for name in (
                 result.stdout.splitlines()
             ):
                 name = name.strip()
 
-                if name:
+                key = (
+                    host,
+                    name,
+                )
+
+                if (
+                    name
+                    and key not in seen
+                ):
+                    seen.add(key)
                     sessions.append(
                         {
                             "host": host,
@@ -747,7 +979,44 @@ def list_sessions() -> None:
             OSError,
             subprocess.SubprocessError,
         ):
-            continue
+            pass
+
+    # Current ChatDock-owned local sessions.
+    collect(
+        LOCAL_HOST,
+        local_tmux_command(
+            "list-sessions",
+            "-F",
+            "#{session_name}",
+        ),
+        4,
+    )
+
+    # Legacy v0.8/default-server sessions stay visible so users
+    # can reopen/migrate them without losing discoverability.
+    collect(
+        LOCAL_HOST,
+        [
+            "tmux",
+            "list-sessions",
+            "-F",
+            "#{session_name}",
+        ],
+        4,
+    )
+
+    # Remote currently keeps its existing/default tmux server.
+    collect(
+        REMOTE_HOST,
+        ssh_command(
+            "tmux",
+            "list-sessions",
+            "-F",
+            "#{session_name}",
+            timeout=5,
+        ),
+        7,
+    )
 
     send(
         {
@@ -755,6 +1024,7 @@ def list_sessions() -> None:
             "sessions": sessions,
         }
     )
+
 
 
 def handle(
