@@ -1,0 +1,12 @@
+# Optional remote terminal.
+#
+# Add something like this to ~/.ssh/config:
+#
+# Host chatdock-remote
+#     HostName 192.168.1.50
+#     User your-user
+#     IdentityFile ~/.ssh/id_ed25519
+
+Host chatdock-remote
+    HostName YOUR_REMOTE_IP_OR_HOSTNAME
+    User YOUR_USERNAME

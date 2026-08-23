@@ -244,8 +244,8 @@
       ` · ` +
       `${
         host === "zaku"
-          ? "Z"
-          : "C"
+          ? "L"
+          : "R"
       }${n}`
     );
   }
@@ -734,10 +734,10 @@
 
       <select id="host">
         <option value="zaku">
-          Zaku
+          Local
         </option>
         <option value="canavar">
-          Canavar
+          Remote
         </option>
       </select>
 
@@ -2108,8 +2108,8 @@
       b.textContent =
         `${
           s.host === "zaku"
-            ? "ZAKU"
-            : "CANAVAR"
+            ? "LOCAL"
+            : "REMOTE"
         } · ${label}`;
 
 
@@ -2258,7 +2258,7 @@
           true;
 
         status(
-          "zaku bağlı"
+          "bridge bağlı"
         );
 
 

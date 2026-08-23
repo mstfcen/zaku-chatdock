@@ -1,84 +1,128 @@
 #!/usr/bin/env python3
 
-import sys
-import os
-import json
-import struct
-import threading
-import pty
-import signal
-import fcntl
-import termios
-import select
-import re
-import subprocess
-import base64
+"""Firefox Native Messaging bridge for Zaku ChatDock."""
 
-INP = sys.stdin.buffer
-OUT = sys.stdout.buffer
+from __future__ import annotations
+
+import base64
+import fcntl
+import json
+import os
+import pty
+import re
+import select
+import signal
+import struct
+import subprocess
+import sys
+import termios
+import threading
+from pathlib import Path
+from typing import Any
+
+
+LOCAL_HOST = "zaku"
+REMOTE_HOST = "canavar"
+
+CONFIG_PATH = (
+    Path.home()
+    / ".config"
+    / "zaku-chatdock"
+    / "config.json"
+)
+
+DEFAULT_REMOTE_SSH_HOST = "chatdock-remote"
+
+INPUT = sys.stdin.buffer
+OUTPUT = sys.stdout.buffer
 
 WRITE_LOCK = threading.Lock()
 SESSIONS_LOCK = threading.Lock()
 
-SESSIONS = {}
+SESSIONS: dict[str, dict[str, Any]] = {}
 
 
-def send(obj):
+def load_config() -> dict[str, Any]:
+    try:
+        with CONFIG_PATH.open(
+            encoding="utf-8"
+        ) as f:
+            value = json.load(f)
 
+        return (
+            value
+            if isinstance(value, dict)
+            else {}
+        )
+
+    except (
+        FileNotFoundError,
+        json.JSONDecodeError,
+        OSError,
+    ):
+        return {}
+
+
+CONFIG = load_config()
+
+REMOTE_SSH_HOST = str(
+    os.environ.get(
+        "CHATDOCK_REMOTE_HOST"
+    )
+    or CONFIG.get("remote_host")
+    or DEFAULT_REMOTE_SSH_HOST
+)
+
+
+def send(message: dict[str, Any]) -> None:
     data = json.dumps(
-        obj,
-        ensure_ascii=False
+        message,
+        ensure_ascii=False,
     ).encode("utf-8")
 
     with WRITE_LOCK:
-
-        OUT.write(
+        OUTPUT.write(
             struct.pack(
                 "<I",
-                len(data)
+                len(data),
             )
         )
+        OUTPUT.write(data)
+        OUTPUT.flush()
 
-        OUT.write(data)
-        OUT.flush()
 
+def read_exact(size: int) -> bytes | None:
+    chunks: list[bytes] = []
 
-def read_exact(n):
+    while size:
+        chunk = INPUT.read(size)
 
-    chunks = []
-
-    while n:
-
-        b = INP.read(n)
-
-        if not b:
+        if not chunk:
             return None
 
-        chunks.append(b)
-
-        n -= len(b)
+        chunks.append(chunk)
+        size -= len(chunk)
 
     return b"".join(chunks)
 
 
-def recv():
+def receive() -> dict[str, Any] | None:
+    header = read_exact(4)
 
-    hdr = read_exact(4)
-
-    if not hdr:
+    if not header:
         return None
 
-    n = struct.unpack(
+    size = struct.unpack(
         "<I",
-        hdr
+        header,
     )[0]
 
-    if n > 8 * 1024 * 1024:
+    if size > 8 * 1024 * 1024:
         raise ValueError(
-            "message too large"
+            "native message is too large"
         )
 
-    body = read_exact(n)
+    body = read_exact(size)
 
     if body is None:
         return None
@@ -88,115 +132,144 @@ def recv():
     )
 
 
-def safe(s):
+def safe_name(
+    value: Any,
+    fallback: str = "chatdock",
+) -> str:
+    cleaned = re.sub(
+        r"[^A-Za-z0-9_-]",
+        "_",
+        str(value),
+    )[:100]
 
-    return (
-        re.sub(
-            r"[^A-Za-z0-9_-]",
-            "_",
-            str(s)
-        )[:100]
-        or
-        "chatdock"
-    )
+    return cleaned or fallback
 
 
-def resize(fd, rows, cols):
-
+def set_terminal_size(
+    fd: int,
+    rows: Any,
+    cols: Any,
+) -> None:
     try:
-
-        data = struct.pack(
+        window = struct.pack(
             "HHHH",
             max(5, int(rows)),
             max(20, int(cols)),
             0,
-            0
+            0,
         )
 
         fcntl.ioctl(
             fd,
             termios.TIOCSWINSZ,
-            data
+            window,
         )
 
-    except Exception:
+    except (
+        OSError,
+        TypeError,
+        ValueError,
+    ):
         pass
 
 
-def reader(sid, fd, pid):
+def ssh_command(
+    *args: str,
+    timeout: int | None = None,
+) -> list[str]:
+    command = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+    ]
 
+    if timeout:
+        command += [
+            "-o",
+            f"ConnectTimeout={timeout}",
+        ]
+
+    command.append(
+        REMOTE_SSH_HOST
+    )
+
+    command.extend(args)
+
+    return command
+
+
+def terminal_reader(
+    session_id: str,
+    fd: int,
+    pid: int,
+) -> None:
     try:
-
         while True:
-
             ready, _, _ = select.select(
                 [fd],
                 [],
                 [],
-                0.5
+                0.5,
             )
 
             if fd in ready:
-
                 try:
-
                     data = os.read(
                         fd,
-                        65536
+                        65536,
                     )
-
                 except OSError:
                     break
 
                 if not data:
                     break
 
-                send({
-                    "type": "output",
-                    "session": sid,
-                    "data":
-                        data.decode(
+                send(
+                    {
+                        "type": "output",
+                        "session": session_id,
+                        "data": data.decode(
                             "utf-8",
-                            "replace"
-                        )
-                })
+                            "replace",
+                        ),
+                    }
+                )
 
             try:
-
                 done, status = os.waitpid(
                     pid,
-                    os.WNOHANG
+                    os.WNOHANG,
                 )
 
                 if done:
-
-                    send({
-                        "type": "exit",
-                        "session": sid,
-                        "code":
-                            os.waitstatus_to_exitcode(
-                                status
-                            )
-                    })
-
+                    send(
+                        {
+                            "type": "exit",
+                            "session": session_id,
+                            "code":
+                                os.waitstatus_to_exitcode(
+                                    status
+                                ),
+                        }
+                    )
                     break
 
             except ChildProcessError:
                 break
 
     finally:
-
         with SESSIONS_LOCK:
-
-            cur = SESSIONS.get(sid)
+            current = SESSIONS.get(
+                session_id
+            )
 
             if (
-                cur and
-                cur["fd"] == fd
+                current
+                and current["fd"] == fd
             ):
                 SESSIONS.pop(
-                    sid,
-                    None
+                    session_id,
+                    None,
                 )
 
         try:
@@ -205,89 +278,86 @@ def reader(sid, fd, pid):
             pass
 
 
-def open_session(msg):
-
-    sid = safe(
-        msg.get(
+def open_session(
+    message: dict[str, Any],
+) -> None:
+    session_id = safe_name(
+        message.get(
             "session",
-            "chatdock"
+            "chatdock",
         )
     )
 
-    host = msg.get(
+    host = message.get(
         "host",
-        "zaku"
+        LOCAL_HOST,
     )
 
-    tmux_name = safe(
-        msg.get("tmux")
-        or
-        sid
+    tmux_name = safe_name(
+        message.get("tmux")
+        or session_id
     )
 
-    rows = msg.get(
+    rows = message.get(
         "rows",
-        24
+        24,
     )
 
-    cols = msg.get(
+    cols = message.get(
         "cols",
-        80
+        80,
     )
 
     if host not in (
-        "zaku",
-        "canavar"
+        LOCAL_HOST,
+        REMOTE_HOST,
     ):
-
-        send({
-            "type": "error",
-            "session": sid,
-            "error": "invalid host"
-        })
-
+        send(
+            {
+                "type": "error",
+                "session": session_id,
+                "error": "invalid host",
+            }
+        )
         return
 
     with SESSIONS_LOCK:
-
-        old = SESSIONS.get(
-            sid
+        existing = SESSIONS.get(
+            session_id
         )
 
-    if old:
-
-        resize(
-            old["fd"],
+    if existing:
+        set_terminal_size(
+            existing["fd"],
             rows,
-            cols
+            cols,
         )
 
-        send({
-            "type": "opened",
-            "session": sid,
-            "host": host,
-            "tmux": old["tmux"],
-            "reused": True
-        })
-
+        send(
+            {
+                "type": "opened",
+                "session": session_id,
+                "host": host,
+                "tmux": existing["tmux"],
+                "reused": True,
+            }
+        )
         return
 
     pid, fd = pty.fork()
 
     if pid == 0:
+        environment = os.environ.copy()
 
-        env = os.environ.copy()
-
-        env["TERM"] = \
+        environment["TERM"] = (
             "xterm-256color"
-
-        env["COLORTERM"] = \
+        )
+        environment["COLORTERM"] = (
             "truecolor"
+        )
 
         try:
-
-            if host == "zaku":
-
+            if host == LOCAL_HOST:
                 os.execvpe(
                     "tmux",
                     [
@@ -295,12 +365,12 @@ def open_session(msg):
                         "new-session",
                         "-A",
                         "-s",
-                        tmux_name
+                        tmux_name,
                     ],
-                    env
+                    environment,
                 )
 
-            remote = (
+            remote_command = (
                 "TERM=xterm-256color "
                 "tmux new-session "
                 f"-A -s {tmux_name}"
@@ -311,258 +381,232 @@ def open_session(msg):
                 [
                     "ssh",
                     "-tt",
-                    "canavar",
-                    remote
+                    REMOTE_SSH_HOST,
+                    remote_command,
                 ],
-                env
+                environment,
             )
 
-        except Exception as e:
-
+        except Exception as exc:
             os.write(
                 2,
                 (
-                    "ChatDock exec "
-                    f"failed: {e}\n"
+                    "ChatDock terminal "
+                    f"failed: {exc}\n"
                 ).encode()
             )
-
             os._exit(127)
 
-    resize(
+    set_terminal_size(
         fd,
         rows,
-        cols
+        cols,
     )
 
     with SESSIONS_LOCK:
-
-        SESSIONS[sid] = {
+        SESSIONS[session_id] = {
             "pid": pid,
             "fd": fd,
             "host": host,
-            "tmux": tmux_name
+            "tmux": tmux_name,
         }
 
     threading.Thread(
-        target=reader,
+        target=terminal_reader,
         args=(
-            sid,
+            session_id,
             fd,
-            pid
+            pid,
         ),
-        daemon=True
+        daemon=True,
     ).start()
 
-    send({
-        "type": "opened",
-        "session": sid,
-        "host": host,
-        "tmux": tmux_name,
-        "reused": False
-    })
+    send(
+        {
+            "type": "opened",
+            "session": session_id,
+            "host": host,
+            "tmux": tmux_name,
+            "reused": False,
+        }
+    )
 
 
-def detach_session(sid):
-
-    sid = safe(sid)
+def detach_session(
+    session_id: str,
+) -> None:
+    session_id = safe_name(
+        session_id
+    )
 
     with SESSIONS_LOCK:
-
-        s = SESSIONS.pop(
-            sid,
-            None
+        session = SESSIONS.pop(
+            session_id,
+            None,
         )
 
-    if not s:
+    if not session:
         return
 
-    # Only kill the tmux CLIENT.
-    # The tmux server/session remains alive.
-
+    # Kill only the tmux client.
+    # The tmux server/session survives.
     try:
         os.kill(
-            s["pid"],
-            signal.SIGHUP
+            session["pid"],
+            signal.SIGHUP,
         )
-    except Exception:
+    except OSError:
         pass
 
     try:
         os.close(
-            s["fd"]
+            session["fd"]
         )
     except OSError:
         pass
 
 
 def tmux_cwd(
-    host,
-    tmux_name
-):
-
+    host: str,
+    tmux_name: str,
+) -> str:
     try:
+        tmux_args = [
+            "tmux",
+            "display-message",
+            "-p",
+            "-t",
+            tmux_name,
+            "#{pane_current_path}",
+        ]
 
-        if host == "zaku":
-
-            r = subprocess.run(
-                [
-                    "tmux",
-                    "display-message",
-                    "-p",
-                    "-t",
-                    tmux_name,
-                    "#{pane_current_path}"
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                timeout=4
+        if host == LOCAL_HOST:
+            command = tmux_args
+            timeout = 4
+        else:
+            command = ssh_command(
+                *tmux_args,
+                timeout=5,
             )
+            timeout = 7
 
-            cwd = \
-                r.stdout.strip()
-
-            if (
-                r.returncode == 0
-                and
-                cwd
-            ):
-                return cwd
-
-            return \
-                os.path.expanduser("~")
-
-        r = subprocess.run(
-            [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=5",
-                "canavar",
-                "tmux",
-                "display-message",
-                "-p",
-                "-t",
-                tmux_name,
-                "#{pane_current_path}"
-            ],
+        result = subprocess.run(
+            command,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
-            timeout=7
+            timeout=timeout,
+            check=False,
         )
 
-        return (
-            r.stdout.strip()
-            or
-            "~"
-        )
+        cwd = result.stdout.strip()
 
-    except Exception:
+        if (
+            result.returncode == 0
+            and cwd
+        ):
+            return cwd
 
-        return (
-            os.path.expanduser("~")
-            if host == "zaku"
-            else "~"
-        )
+    except (
+        OSError,
+        subprocess.SubprocessError,
+    ):
+        pass
+
+    return (
+        str(Path.home())
+        if host == LOCAL_HOST
+        else "~"
+    )
 
 
-def exec_worker(msg):
-
-    sid = safe(
-        msg.get(
+def exec_worker(
+    message: dict[str, Any],
+) -> None:
+    session_id = safe_name(
+        message.get(
             "session",
-            ""
+            "",
         )
     )
 
-    run_id = safe(
-        msg.get(
+    run_id = safe_name(
+        message.get(
             "run_id",
-            "run"
+            "run",
         )
     )
 
     script = str(
-        msg.get(
+        message.get(
             "script",
-            ""
+            "",
         )
     )
 
     with SESSIONS_LOCK:
-
-        s = SESSIONS.get(
-            sid
+        session = SESSIONS.get(
+            session_id
         )
 
-    if not s:
-
-        send({
-            "type": "exec_done",
-            "session": sid,
-            "run_id": run_id,
-            "code": 125,
-            "error":
-                "terminal session "
-                "is not attached"
-        })
-
+    if not session:
+        send(
+            {
+                "type": "exec_done",
+                "session": session_id,
+                "run_id": run_id,
+                "code": 125,
+                "error":
+                    "terminal session "
+                    "is not attached",
+            }
+        )
         return
 
-    host = s["host"]
-    tmux_name = s["tmux"]
+    host = session["host"]
+    tmux_name = session["tmux"]
 
     cwd = tmux_cwd(
         host,
-        tmux_name
+        tmux_name,
     )
 
-    send({
-        "type": "exec_started",
-        "session": sid,
-        "run_id": run_id,
-        "host": host,
-        "cwd": cwd
-    })
+    send(
+        {
+            "type": "exec_started",
+            "session": session_id,
+            "run_id": run_id,
+            "host": host,
+            "cwd": cwd,
+        }
+    )
 
     try:
-
-        if host == "zaku":
-
-            proc = subprocess.Popen(
-                [
-                    "bash",
-                    "-c",
-                    script
-                ],
-                cwd=(
-                    cwd
-                    if os.path.isdir(cwd)
-                    else
-                    os.path.expanduser("~")
-                ),
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                bufsize=0
+        if host == LOCAL_HOST:
+            local_cwd = (
+                cwd
+                if os.path.isdir(cwd)
+                else str(Path.home())
             )
 
+            command = [
+                "bash",
+                "-c",
+                script,
+            ]
+
+            process_cwd = local_cwd
+
         else:
+            script64 = base64.b64encode(
+                script.encode()
+            ).decode()
 
-            script64 = \
-                base64.b64encode(
-                    script.encode()
-                ).decode()
+            cwd64 = base64.b64encode(
+                cwd.encode()
+            ).decode()
 
-            cwd64 = \
-                base64.b64encode(
-                    cwd.encode()
-                ).decode()
-
-            remote = (
+            remote_command = (
                 'CWD="$(printf %s '
                 f'{cwd64} '
                 '| base64 -d)"; '
@@ -573,271 +617,266 @@ def exec_worker(msg):
                 '| base64 -d | bash'
             )
 
-            proc = subprocess.Popen(
-                [
-                    "ssh",
-                    "-o",
-                    "BatchMode=yes",
-                    "-o",
-                    "ConnectTimeout=8",
-                    "canavar",
-                    remote
-                ],
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                bufsize=0
+            command = ssh_command(
+                remote_command,
+                timeout=8,
             )
 
-        while True:
+            process_cwd = None
 
-            chunk = \
-                proc.stdout.read(
-                    4096
-                )
+        process = subprocess.Popen(
+            command,
+            cwd=process_cwd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=0,
+        )
+
+        assert process.stdout is not None
+
+        while True:
+            chunk = process.stdout.read(
+                4096
+            )
 
             if not chunk:
                 break
 
-            send({
-                "type": "exec_output",
-                "session": sid,
-                "run_id": run_id,
-                "data":
-                    chunk.decode(
+            send(
+                {
+                    "type": "exec_output",
+                    "session": session_id,
+                    "run_id": run_id,
+                    "data": chunk.decode(
                         "utf-8",
-                        "replace"
-                    )
-            })
+                        "replace",
+                    ),
+                }
+            )
 
-        code = proc.wait()
+        code = process.wait()
 
-        send({
-            "type": "exec_done",
-            "session": sid,
-            "run_id": run_id,
-            "host": host,
-            "code": code
-        })
+        send(
+            {
+                "type": "exec_done",
+                "session": session_id,
+                "run_id": run_id,
+                "host": host,
+                "code": code,
+            }
+        )
 
-    except Exception as e:
+    except Exception as exc:
+        send(
+            {
+                "type": "exec_done",
+                "session": session_id,
+                "run_id": run_id,
+                "host": host,
+                "code": 125,
+                "error": str(exc),
+            }
+        )
 
-        send({
-            "type": "exec_done",
-            "session": sid,
-            "run_id": run_id,
-            "host": host,
-            "code": 125,
-            "error": str(e)
-        })
 
-
-def list_sessions():
-
-    result = []
+def list_sessions() -> None:
+    sessions: list[dict[str, str]] = []
 
     for host in (
-        "zaku",
-        "canavar"
+        LOCAL_HOST,
+        REMOTE_HOST,
     ):
-
         try:
+            tmux_args = [
+                "tmux",
+                "list-sessions",
+                "-F",
+                "#{session_name}",
+            ]
 
-            if host == "zaku":
-
-                r = subprocess.run(
-                    [
-                        "tmux",
-                        "list-sessions",
-                        "-F",
-                        "#{session_name}"
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    timeout=4
-                )
-
+            if host == LOCAL_HOST:
+                command = tmux_args
+                timeout = 4
             else:
-
-                r = subprocess.run(
-                    [
-                        "ssh",
-                        "-o",
-                        "BatchMode=yes",
-                        "-o",
-                        "ConnectTimeout=5",
-                        "canavar",
-                        "tmux",
-                        "list-sessions",
-                        "-F",
-                        "#{session_name}"
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True,
-                    timeout=7
+                command = ssh_command(
+                    *tmux_args,
+                    timeout=5,
                 )
+                timeout = 7
 
-            if r.returncode == 0:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
 
-                for name in \
-                    r.stdout.splitlines():
+            if result.returncode != 0:
+                continue
 
-                    name = name.strip()
+            for name in (
+                result.stdout.splitlines()
+            ):
+                name = name.strip()
 
-                    if name:
-
-                        result.append({
+                if name:
+                    sessions.append(
+                        {
                             "host": host,
-                            "tmux": name
-                        })
+                            "tmux": name,
+                        }
+                    )
 
-        except Exception:
-            pass
+        except (
+            OSError,
+            subprocess.SubprocessError,
+        ):
+            continue
 
-    send({
-        "type": "sessions_list",
-        "sessions": result
-    })
+    send(
+        {
+            "type": "sessions_list",
+            "sessions": sessions,
+        }
+    )
 
 
-def handle(msg):
+def handle(
+    message: dict[str, Any],
+) -> None:
+    message_type = message.get(
+        "type"
+    )
 
-    typ = msg.get("type")
-
-    sid = safe(
-        msg.get(
+    session_id = safe_name(
+        message.get(
             "session",
-            ""
+            "",
         )
     )
 
-    if typ == "ping":
-
-        send({
-            "type": "pong"
-        })
-
-    elif typ == "open":
-
-        open_session(msg)
-
-    elif typ == "input":
-
-        with SESSIONS_LOCK:
-
-            s = SESSIONS.get(
-                sid
-            )
-
-        if s:
-
-            try:
-
-                os.write(
-                    s["fd"],
-                    str(
-                        msg.get(
-                            "data",
-                            ""
-                        )
-                    ).encode("utf-8")
-                )
-
-            except Exception as e:
-
-                send({
-                    "type": "error",
-                    "session": sid,
-                    "error": str(e)
-                })
-
-    elif typ == "resize":
-
-        with SESSIONS_LOCK:
-
-            s = SESSIONS.get(
-                sid
-            )
-
-        if s:
-
-            resize(
-                s["fd"],
-                msg.get(
-                    "rows",
-                    24
-                ),
-                msg.get(
-                    "cols",
-                    80
-                )
-            )
-
-    elif typ == "close":
-
-        detach_session(
-            sid
+    if message_type == "ping":
+        send(
+            {
+                "type": "pong",
+                "remote_host":
+                    REMOTE_SSH_HOST,
+            }
         )
+        return
 
-    elif typ == "exec":
+    if message_type == "open":
+        open_session(message)
+        return
 
+    if message_type == "input":
+        with SESSIONS_LOCK:
+            session = SESSIONS.get(
+                session_id
+            )
+
+        if session:
+            try:
+                os.write(
+                    session["fd"],
+                    str(
+                        message.get(
+                            "data",
+                            "",
+                        )
+                    ).encode("utf-8"),
+                )
+
+            except OSError as exc:
+                send(
+                    {
+                        "type": "error",
+                        "session":
+                            session_id,
+                        "error": str(exc),
+                    }
+                )
+        return
+
+    if message_type == "resize":
+        with SESSIONS_LOCK:
+            session = SESSIONS.get(
+                session_id
+            )
+
+        if session:
+            set_terminal_size(
+                session["fd"],
+                message.get(
+                    "rows",
+                    24,
+                ),
+                message.get(
+                    "cols",
+                    80,
+                ),
+            )
+        return
+
+    if message_type == "close":
+        detach_session(
+            session_id
+        )
+        return
+
+    if message_type == "exec":
         threading.Thread(
             target=exec_worker,
-            args=(msg,),
-            daemon=True
+            args=(message,),
+            daemon=True,
         ).start()
+        return
 
-    elif typ == "list_sessions":
-
+    if message_type == "list_sessions":
         threading.Thread(
             target=list_sessions,
-            daemon=True
+            daemon=True,
         ).start()
 
 
-def main():
-
+def main() -> None:
     try:
-
         while True:
+            message = receive()
 
-            msg = recv()
-
-            if msg is None:
+            if message is None:
                 break
 
             try:
+                handle(message)
 
-                handle(msg)
-
-            except Exception as e:
-
-                send({
-                    "type": "error",
-                    "session":
-                        safe(
-                            msg.get(
-                                "session",
-                                ""
-                            )
-                        ),
-                    "error": str(e)
-                })
+            except Exception as exc:
+                send(
+                    {
+                        "type": "error",
+                        "session":
+                            safe_name(
+                                message.get(
+                                    "session",
+                                    "",
+                                )
+                            ),
+                        "error": str(exc),
+                    }
+                )
 
     finally:
-
         with SESSIONS_LOCK:
-
-            ids = list(
+            session_ids = list(
                 SESSIONS
             )
 
-        for sid in ids:
-
+        for session_id in session_ids:
             detach_session(
-                sid
+                session_id
             )
 
 

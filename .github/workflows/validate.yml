@@ -11,16 +11,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate manifest
-        run: python3 -m json.tool extension/manifest.json >/dev/null
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Validate Python
-        run: python3 -m py_compile native/chatdock_native.py
+      - name: Validate
+        run: ./scripts/check.sh
 
-      - name: Validate JavaScript
-        run: |
-          node --check extension/background.js
-          node --check extension/content.js
-
-      - name: Build Firefox XPI
+      - name: Build XPI
         run: ./scripts/build.sh

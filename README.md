@@ -1,184 +1,165 @@
 # Zaku ChatDock
 
-**Conversation-bound terminal workspaces for ChatGPT.**
+**A terminal that follows your ChatGPT conversation.**
 
-Zaku ChatDock adds a real Linux terminal directly to ChatGPT and binds
-terminal state to the current conversation.
+Zaku ChatDock is a small Linux + Firefox hobby project.
 
-Each chat gets its own persistent `tmux` workspace. Switch conversations,
-and your terminal context switches with you. Return later and the same
-terminal is still there.
+It puts a real terminal next to ChatGPT and gives every conversation its
+own persistent `tmux` workspace.
 
-> Current status: **public alpha / hobby project**
+Change chats → terminal changes with it.
 
-## Why?
+Come back later → your terminal is still there.
 
-A common AI-assisted terminal workflow looks like this:
+## The nice part
 
-1. Ask ChatGPT for a command.
-2. Copy the command.
-3. Find the correct terminal.
-4. Paste it.
-5. Run it.
-6. Copy the output.
-7. Find the correct ChatGPT conversation.
-8. Paste the output back.
-
-ChatDock collapses that loop.
+Normally the loop is:
 
 ~~~text
-ChatGPT
-   │
-   │  Run + Send
-   ▼
-chat-specific terminal
-   │
-   ├── Zaku / local
-   └── Canavar / optional SSH remote
-   │
-   ▼
-stdout + stderr
-   │
-   ▼
-ChatGPT automatically
+ask ChatGPT
+→ copy command
+→ find terminal
+→ paste
+→ run
+→ copy output
+→ find ChatGPT again
+→ paste output
 ~~~
 
-## Features
+With ChatDock:
 
-- persistent `tmux` workspace per ChatGPT conversation
-- multiple terminal tabs per conversation
-- local shell support
-- optional SSH remote shell
-- session browser for existing tmux sessions
-- `Run + Send` button on assistant code blocks
-- live stdout/stderr in the terminal
-- command exit-code capture
-- automatic result handoff back into ChatGPT
+~~~text
+ChatGPT code block
+       │
+       ▼
+  Run + Send
+       │
+       ▼
+chat-specific tmux terminal
+       │
+       ▼
+ command output
+       │
+       ▼
+back to the same ChatGPT chat
+~~~
+
+## What it can do
+
+- one persistent terminal workspace per ChatGPT conversation
+- multiple terminal tabs per chat
+- local Linux terminals
+- optional SSH remote terminals
+- existing `tmux` session browser
+- Run + Send on assistant code blocks
+- live stdout/stderr
+- exit-code reporting
+- automatic command-result handoff to ChatGPT
 - compact sidebar mode
-- Firefox Native Messaging bridge
-- no network-facing shell server
+- Firefox Native Messaging instead of a network shell server
 
-## Screenshot
+## Quick install
 
-Coming soon.
-
-## Requirements
-
-Current alpha target:
+For now the alpha version targets:
 
 - Linux
 - Firefox Developer Edition
 - Python 3
 - tmux
-- OpenSSH client
+- OpenSSH
 - curl
 
-The Firefox extension is currently unsigned, so Developer Edition is
-recommended during the alpha phase.
+### Ubuntu / Debian
 
-## Install
+Install the few dependencies:
 
-Clone:
+~~~bash
+sudo apt install python3 tmux openssh-client curl
+~~~
+
+Then run:
+
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/mstfcen/zaku-chatdock/main/scripts/bootstrap.sh | bash
+~~~
+
+The installer prints the generated `.xpi` path.
+
+In Firefox Developer Edition:
+
+~~~text
+about:addons
+→ gear icon
+→ Install Add-on From File
+→ choose the generated XPI
+~~~
+
+Reload ChatGPT and the terminal should appear.
+
+## Prefer cloning it?
 
 ~~~bash
 git clone https://github.com/mstfcen/zaku-chatdock.git
 cd zaku-chatdock
-~~~
-
-Install the native bridge and build the extension:
-
-~~~bash
 ./scripts/install.sh
 ~~~
 
-Then open Firefox Developer Edition:
-
-~~~text
-about:addons
-~~~
-
-Choose:
-
-~~~text
-Gear
-→ Install Add-on From File
-~~~
-
-Select the generated XPI under:
-
-~~~text
-dist/
-~~~
-
-Reload `chatgpt.com`.
-
 ## Optional remote machine
 
-Local terminals work without SSH.
+Local mode needs no extra configuration.
 
-The current alpha uses an SSH alias named `canavar` for its optional
-remote host.
-
-Example `~/.ssh/config`:
+For a remote terminal, edit:
 
 ~~~text
-Host canavar
+~/.config/zaku-chatdock/config.json
+~~~
+
+Default:
+
+~~~json
+{
+  "remote_host": "chatdock-remote"
+}
+~~~
+
+Then create the matching SSH alias in `~/.ssh/config`:
+
+~~~text
+Host chatdock-remote
     HostName 192.168.1.50
     User your-user
-    IdentityFile ~/.ssh/id_ed25519
 ~~~
 
-The remote computer needs `tmux`.
+The remote machine also needs `tmux`.
 
-A configurable multi-host manager is planned.
+## Why tmux?
 
-## Run + Send
+The browser panel is only the view.
 
-Assistant code blocks receive a:
-
-~~~text
-▶ Run + Send
-~~~
-
-control.
-
-When clicked:
-
-1. the command runs on the active ChatDock terminal host,
-2. output streams into the terminal,
-3. ChatDock waits for completion,
-4. captures stdout/stderr and the exit code,
-5. sends the result back to the same ChatGPT conversation.
-
-## Conversation isolation
-
-Conceptually:
-
-~~~text
-Chat A
-└── tmux workspace A
-
-Chat B
-└── tmux workspace B
-
-Chat C
-└── tmux workspace C
-~~~
-
-Switching back to Chat A reconnects to workspace A.
+The real shell state lives in `tmux`, so refreshing ChatGPT or reopening
+the conversation does not have to destroy the terminal workspace.
 
 ## Security
 
-ChatDock can execute shell commands.
+ChatDock executes commands as your current Unix user.
 
-Read commands before running them.
+Read a command before clicking Run + Send.
 
-The local browser-to-shell bridge uses Firefox Native Messaging rather
-than exposing a TCP shell server.
+The browser talks to the local Python bridge through Firefox Native
+Messaging. ChatDock does not intentionally expose a shell server on a
+TCP port.
 
-Remote execution uses your normal SSH configuration and credentials.
+Remote mode uses your normal SSH configuration.
 
-## Build
+## Development
+
+Run all local checks:
+
+~~~bash
+./scripts/check.sh
+~~~
+
+Build the extension:
 
 ~~~bash
 ./scripts/build.sh
@@ -187,19 +168,24 @@ Remote execution uses your normal SSH configuration and credentials.
 Output:
 
 ~~~text
-dist/Zaku-ChatDock-v0.6.0.xpi
+dist/Zaku-ChatDock-v0.7.0.xpi
 ~~~
+
+## Current status
+
+This is still an alpha hobby project.
+
+The interface and installer will change.
 
 ## Roadmap
 
-- polished Opera-style drawer/sidebar UX
-- configurable local/remote host manager
-- better automatic terminal naming
+- polished Opera-style drawer
+- nicer conversation-derived terminal names
+- multiple configurable remote hosts
 - safer approval modes
-- signed Firefox release
-- easier one-command installation
+- Firefox signing
+- easier updates
 - Chromium investigation
-- richer execution status UI
 
 ## License
 
@@ -207,7 +193,5 @@ MIT.
 
 ## Disclaimer
 
-Zaku ChatDock is an independent hobby project.
-
-It is not affiliated with or endorsed by OpenAI, ChatGPT, Mozilla, or
-Firefox.
+Independent hobby project. Not affiliated with or endorsed by OpenAI,
+ChatGPT, Mozilla, or Firefox.

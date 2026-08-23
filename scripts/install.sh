@@ -7,33 +7,58 @@ ROOT="$(
 )"
 
 APP="$HOME/.local/share/zaku-chatdock"
+CFG="$HOME/.config/zaku-chatdock"
 NMH="$HOME/.mozilla/native-messaging-hosts"
 
 echo "========================================"
-echo " Zaku ChatDock installer"
+echo " Zaku ChatDock"
 echo "========================================"
+echo
+echo "Installing the local terminal bridge..."
+echo
 
 missing=()
 
-for cmd in python3 tmux ssh curl; do
-  command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+for cmd in \
+  python3 \
+  tmux \
+  ssh \
+  curl
+do
+  command -v "$cmd" >/dev/null 2>&1 \
+    || missing+=("$cmd")
 done
 
 if ((${#missing[@]})); then
   echo "Missing dependencies:"
-  printf ' - %s\n' "${missing[@]}"
+  printf '  - %s\n' "${missing[@]}"
   echo
-  echo "Ubuntu/Debian example:"
-  echo "sudo apt install python3 tmux openssh-client curl"
+
+  if command -v apt >/dev/null 2>&1; then
+    echo "Ubuntu/Debian:"
+    echo "  sudo apt install python3 tmux openssh-client curl"
+  fi
+
   exit 1
 fi
 
-mkdir -p "$APP" "$NMH"
+mkdir -p \
+  "$APP" \
+  "$CFG" \
+  "$NMH"
 
-cp "$ROOT/native/chatdock_native.py" \
-   "$APP/chatdock_native.py"
+cp \
+  "$ROOT/native/chatdock_native.py" \
+  "$APP/chatdock_native.py"
 
-chmod 755 "$APP/chatdock_native.py"
+chmod 755 \
+  "$APP/chatdock_native.py"
+
+if [[ ! -f "$CFG/config.json" ]]; then
+  cp \
+    "$ROOT/config/config.example.json" \
+    "$CFG/config.json"
+fi
 
 cat > "$NMH/local.zaku.chatdock.json" <<JSON
 {
@@ -47,18 +72,36 @@ cat > "$NMH/local.zaku.chatdock.json" <<JSON
 }
 JSON
 
+echo "Building Firefox extension..."
+
 "$ROOT/scripts/build.sh"
 
+XPI="$(
+  find "$ROOT/dist" \
+    -maxdepth 1 \
+    -type f \
+    -name '*.xpi' \
+    | sort \
+    | tail -1
+)"
+
 echo
-echo "Native host installed."
+echo "Native bridge: OK"
+echo "Config:"
+echo "  $CFG/config.json"
 echo
-echo "Now open Firefox Developer Edition:"
-echo "  about:addons"
+echo "Extension:"
+echo "  $XPI"
 echo
-echo "Gear -> Install Add-on From File"
+echo "Almost done:"
 echo
-echo "Select:"
-find "$ROOT/dist" -maxdepth 1 -name '*.xpi' -print
+echo "1) Open Firefox Developer Edition"
+echo "2) Go to: about:addons"
+echo "3) Gear icon -> Install Add-on From File"
+echo "4) Select the XPI printed above"
+echo "5) Open or reload chatgpt.com"
 echo
-echo "Optional remote machine:"
-echo "Create an SSH alias named 'canavar' in ~/.ssh/config."
+echo "Local terminal works immediately."
+echo
+echo "Remote terminal is optional."
+echo "See config/ssh-config.example if you want it."

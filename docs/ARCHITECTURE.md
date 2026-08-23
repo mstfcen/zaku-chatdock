@@ -1,78 +1,80 @@
 # Architecture
 
-Zaku ChatDock has three layers.
-
-## Content script
-
-Runs on `chatgpt.com`.
-
-Responsibilities:
-
-- identify the current conversation
-- map conversations to terminal workspaces
-- render xterm.js
-- render the sidebar
-- add Run + Send controls
-- manage terminal tabs
-- transfer command results back to ChatGPT
-
-## Background script
-
-The WebExtension background process owns the Firefox Native Messaging
-connection.
+Zaku ChatDock is intentionally small.
 
 ~~~text
-ChatGPT content script
-        │
-        ▼
+chatgpt.com
+    │
+    ▼
+content script + xterm.js
+    │
+    ▼
 WebExtension background
-        │
-        ▼
+    │
+    ▼
 Firefox Native Messaging
-        │
-        ▼
+    │
+    ▼
 Python native host
+    │
+    ├── local tmux
+    │
+    └── SSH → remote tmux
 ~~~
 
-## Native host
+## Conversation layer
 
-`native/chatdock_native.py` provides:
+The content script identifies the current ChatGPT conversation and stores
+its terminal metadata in WebExtension local storage.
+
+The internal host IDs from early versions are kept for storage
+compatibility, while the UI exposes them as **Local** and **Remote**.
+
+## Persistence layer
+
+The shell workspace itself lives in `tmux`.
+
+The browser extension attaches and detaches tmux clients. Closing the UI
+does not intentionally kill the underlying tmux session.
+
+## Native bridge
+
+`native/chatdock_native.py` uses Firefox Native Messaging over stdin/stdout.
+
+It handles:
 
 - PTY allocation
-- tmux attach/create
-- terminal input/output streaming
+- terminal resize/input/output
+- local tmux attachment
+- optional SSH remote tmux attachment
 - command execution
-- exit-code reporting
-- tmux session enumeration
-- optional SSH remote attachment
+- output streaming
+- exit codes
+- session enumeration
 
-## Persistence
+Remote SSH target configuration is read from:
 
-The browser UI is disposable.
-
-The real terminal state lives in tmux.
-
-That means refreshing ChatGPT or closing the browser does not need to
-destroy the underlying shell workspace.
+~~~text
+~/.config/zaku-chatdock/config.json
+~~~
 
 ## Run + Send
 
 ~~~text
 assistant code block
-        │
-        ▼
-explicit user click
-        │
-        ▼
+       │
+       ▼
+explicit click
+       │
+       ▼
 native exec worker
-        │
-        ▼
-stdout / stderr
-        │
-        ├── terminal display
-        │
-        └── captured result
-                 │
-                 ▼
-            ChatGPT composer
+       │
+       ├── live terminal output
+       │
+       └── captured stdout/stderr
+                    │
+                    ▼
+              ChatGPT composer
 ~~~
+
+The user must explicitly click the execution control.
