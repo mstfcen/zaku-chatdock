@@ -45,6 +45,17 @@
 
     autoSend: true,
 
+    autoMission: true,
+
+    missionInjecting: false,
+
+    mission: {
+      enabled: false,
+      goal: "",
+      extra: "",
+      seeded: false
+    },
+
     currentUrl:
       location.href,
 
@@ -272,6 +283,17 @@
 
       collapsed:
         STATE.collapsed,
+
+      mission: {
+        enabled:
+          !!STATE.mission.enabled,
+        goal:
+          STATE.mission.goal || "",
+        extra:
+          STATE.mission.extra || "",
+        seeded:
+          !!STATE.mission.seeded
+      },
 
       activeId:
         STATE.activeId,
@@ -551,6 +573,101 @@
       max-width:330px
     }
 
+    #missionpanel{
+      position:absolute;
+      top:52px;
+      right:10px;
+      width:min(430px,calc(100% - 20px));
+      max-height:calc(100vh - 72px);
+      overflow:auto;
+      display:none;
+      z-index:90;
+      padding:14px;
+      background:#151515;
+      border:1px solid #414141;
+      border-radius:12px;
+      box-shadow:0 18px 60px rgba(0,0,0,.55)
+    }
+
+    #missionpanel.open{
+      display:block
+    }
+
+    #missionpanel .mh{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px
+    }
+
+    #missionpanel .mtitle{
+      font-size:13px;
+      font-weight:800
+    }
+
+    #missionpanel .msub{
+      font-size:10px;
+      color:#888;
+      margin-top:3px
+    }
+
+    #missionpanel label{
+      display:block;
+      margin:10px 0 5px;
+      color:#aaa;
+      font-size:10px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.05em
+    }
+
+    #missionpanel textarea{
+      display:block;
+      width:100%;
+      resize:vertical;
+      min-height:80px;
+      padding:9px 10px;
+      background:#0d0d0d;
+      color:#eee;
+      border:1px solid #343434;
+      border-radius:8px;
+      outline:none;
+      font:12px/1.4 ui-sans-serif,system-ui,sans-serif
+    }
+
+    #missionpanel textarea:focus{
+      border-color:#666
+    }
+
+    #missionextra{
+      min-height:62px!important
+    }
+
+    #missionpanel .mactions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin-top:12px
+    }
+
+    #missionpanel .mnote{
+      margin-top:10px;
+      color:#777;
+      font-size:10px;
+      line-height:1.35
+    }
+
+    #mission.active{
+      border-color:#4f7d5a;
+      background:#19311f
+    }
+
+    #automission.on{
+      border-color:#4f7d5a;
+      background:#19311f
+    }
+
     #picker{
       position:absolute;
       top:46px;
@@ -625,7 +742,8 @@
     #dock.collapsed #tabs,
     #dock.collapsed #termwrap,
     #dock.collapsed #footer,
-    #dock.collapsed #picker{
+    #dock.collapsed #picker,
+    #dock.collapsed #missionpanel{
       display:none !important
     }
 
@@ -657,6 +775,11 @@
     #dock.collapsed #sessions::before{
       content:"☰";
       font-size:18px
+    }
+
+    #dock.collapsed #mission::before{
+      content:"🎯";
+      font-size:17px
     }
 
     #dock.collapsed #autosend::before{
@@ -749,6 +872,10 @@
         ☰ Sessions
       </button>
 
+      <button id="mission">
+        🎯 Mission
+      </button>
+
       <button id="autosend">
         AUTO→CHAT ON
       </button>
@@ -782,6 +909,65 @@
     </div>
 
     <div id="picker"></div>
+
+    <div id="missionpanel">
+
+      <div class="mh">
+        <div>
+          <div class="mtitle">
+            🎯 Mission Mode
+          </div>
+          <div class="msub">
+            ChatGPT + ChatDock execution contract
+          </div>
+        </div>
+
+        <button id="missionclose">
+          ×
+        </button>
+      </div>
+
+      <label for="missiongoal">
+        Objective
+      </label>
+
+      <textarea
+        id="missiongoal"
+        placeholder="Example: Diagnose and permanently fix the Bluetooth problem on this machine."
+      ></textarea>
+
+      <label for="missionextra">
+        Extra instructions
+      </label>
+
+      <textarea
+        id="missionextra"
+        placeholder="Optional constraints, preferences, forbidden actions..."
+      ></textarea>
+
+      <div class="mactions">
+
+        <button id="missionstart">
+          ▶ Start / Update
+        </button>
+
+        <button id="missionend">
+          ■ End
+        </button>
+
+        <button id="automission">
+          New chat auto
+        </button>
+
+      </div>
+
+      <div class="mnote">
+        Auto mode wraps the first message of a brand-new chat
+        as the mission objective. It is sent as a normal,
+        visible user message — not as a hidden system prompt.
+      </div>
+
+    </div>
 
     <div id="toast"></div>
   `;
@@ -861,6 +1047,387 @@
       )
       .textContent =
       s;
+  }
+
+
+  function hostDisplay(
+    host
+  ) {
+
+    return (
+      host === "zaku"
+        ? "local"
+        : "remote"
+    );
+  }
+
+
+  function missionEnvelope(
+    goal,
+    extra = ""
+  ) {
+
+    const cleanGoal =
+      String(goal || "")
+        .trim();
+
+    const cleanExtra =
+      String(extra || "")
+        .trim();
+
+    return (
+      `[CHATDOCK_MISSION v1]\n` +
+      `Objective:\n` +
+      `${cleanGoal}\n\n` +
+
+      `Operating contract:\n` +
+
+      `1. Own the objective and drive it to a verified completion.\n` +
+
+      `2. ChatDock is available as the terminal execution loop. ` +
+      `When terminal work is required, return exactly one ` +
+      `self-contained executable code block for the active host.\n` +
+
+      `3. Prefer inspect -> act -> verify -> continue. ` +
+      `Do not stop after merely suggesting commands when execution ` +
+      `through ChatDock can advance the objective.\n` +
+
+      `4. Results tagged [CHATDOCK_RESULT] are verified execution ` +
+      `results. Read the exit code, cwd and output, then decide the ` +
+      `next action.\n` +
+
+      `5. Never claim that a command succeeded unless a ChatDock ` +
+      `result confirms it.\n` +
+
+      `6. Do not ask the user to copy terminal output, paste commands, ` +
+      `or manually relay routine execution results. ChatDock handles ` +
+      `that loop.\n` +
+
+      `7. Ask the user only when an irreducible human action is needed: ` +
+      `physical interaction, credentials, a genuinely ambiguous choice, ` +
+      `purchase/payment, external communication, or an irreversible / ` +
+      `destructive operation requiring approval.\n` +
+
+      `8. Keep explanations concise while work is in progress. ` +
+      `When the objective is complete, state what was verified and any ` +
+      `remaining caveat.\n` +
+
+      (
+        cleanExtra
+          ? `\nMission-specific instructions:\n${cleanExtra}\n`
+          : ""
+      ) +
+
+      `[/CHATDOCK_MISSION]`
+    );
+  }
+
+
+  async function saveGlobalSettings() {
+
+    await browser
+      .storage
+      .local
+      .set({
+        "chatdock:v08:settings": {
+          autoMission:
+            !!STATE.autoMission
+        }
+      });
+  }
+
+
+  function refreshMissionUi() {
+
+    const missionButton =
+      shadow.getElementById(
+        "mission"
+      );
+
+    if (missionButton) {
+
+      missionButton.classList.toggle(
+        "active",
+        !!STATE.mission.enabled
+      );
+
+      missionButton.textContent =
+        STATE.mission.enabled
+          ? "🎯 Active"
+          : "🎯 Mission";
+
+      missionButton.title =
+        STATE.mission.enabled
+          ? STATE.mission.goal
+          : "Mission Mode";
+    }
+
+
+    const autoButton =
+      shadow.getElementById(
+        "automission"
+      );
+
+    if (autoButton) {
+
+      autoButton.classList.toggle(
+        "on",
+        !!STATE.autoMission
+      );
+
+      autoButton.textContent =
+        STATE.autoMission
+          ? "New chat auto: ON"
+          : "New chat auto: OFF";
+    }
+  }
+
+
+  function openMissionPanel() {
+
+    const panel =
+      shadow.getElementById(
+        "missionpanel"
+      );
+
+    const goal =
+      shadow.getElementById(
+        "missiongoal"
+      );
+
+    const extra =
+      shadow.getElementById(
+        "missionextra"
+      );
+
+    goal.value =
+      STATE.mission.goal || "";
+
+    extra.value =
+      STATE.mission.extra || "";
+
+    panel.classList.toggle(
+      "open"
+    );
+
+    refreshMissionUi();
+
+    if (
+      panel.classList.contains(
+        "open"
+      )
+    ) {
+
+      setTimeout(
+        () => goal.focus(),
+        20
+      );
+    }
+  }
+
+
+  async function startMission(
+    goal,
+    extra = "",
+    auto = false
+  ) {
+
+    goal =
+      String(goal || "")
+        .trim();
+
+    extra =
+      String(extra || "")
+        .trim();
+
+    if (!goal) {
+
+      toast(
+        "Mission objective boş"
+      );
+
+      return false;
+    }
+
+
+    if (
+      !auto
+      &&
+      composerText(
+        composer()
+      ).trim()
+    ) {
+
+      toast(
+        "Mesaj kutusu dolu; Mission prompt gönderilmedi"
+      );
+
+      return false;
+    }
+
+
+    STATE.mission = {
+      enabled: true,
+      goal,
+      extra,
+      seeded: false
+    };
+
+
+    if (!STATE.convoId) {
+
+      await browser
+        .storage
+        .local
+        .set({
+          "chatdock:v08:pendingMission": {
+            goal,
+            extra,
+            enabled: true,
+            seeded: true,
+            ts: Date.now()
+          }
+        });
+    }
+
+
+    await saveMeta();
+
+    refreshMissionUi();
+
+
+    STATE.missionInjecting =
+      true;
+
+
+    const inserted =
+      insertComposer(
+        missionEnvelope(
+          goal,
+          extra
+        )
+      );
+
+
+    if (!inserted) {
+
+      STATE.missionInjecting =
+        false;
+
+      return false;
+    }
+
+
+    await sleep(
+      80
+    );
+
+
+    const ok =
+      await submitComposer();
+
+
+    STATE.mission.seeded =
+      !!ok;
+
+
+    STATE.missionInjecting =
+      false;
+
+
+    await saveMeta();
+
+    refreshMissionUi();
+
+
+    shadow
+      .getElementById(
+        "missionpanel"
+      )
+      ?.classList
+      .remove(
+        "open"
+      );
+
+
+    toast(
+      ok
+        ? "Mission başladı"
+        : "Mission prompt hazır; Send bulunamadı"
+    );
+
+
+    return ok;
+  }
+
+
+  async function endMission() {
+
+    STATE.mission.enabled =
+      false;
+
+    STATE.mission.seeded =
+      false;
+
+    await saveMeta();
+
+    refreshMissionUi();
+
+
+    const current =
+      composerText(
+        composer()
+      ).trim();
+
+
+    if (!current) {
+
+      STATE.missionInjecting =
+        true;
+
+      insertComposer(
+        "[CHATDOCK_MISSION_END]\n" +
+        "The active ChatDock mission is ended. " +
+        "Return to normal conversation mode.\n" +
+        "[/CHATDOCK_MISSION_END]"
+      );
+
+      await sleep(
+        60
+      );
+
+      await submitComposer();
+
+      STATE.missionInjecting =
+        false;
+    }
+
+
+    toast(
+      "Mission ended"
+    );
+  }
+
+
+  function autoMissionCandidate() {
+
+    if (
+      !STATE.autoMission
+      ||
+      STATE.missionInjecting
+      ||
+      STATE.convoId
+      ||
+      STATE.mission.seeded
+    ) {
+
+      return "";
+    }
+
+
+    return composerText(
+      composer()
+    ).trim();
   }
 
 
@@ -1711,6 +2278,12 @@
         output:
           "",
 
+        cwd:
+          null,
+
+        startedAt:
+          Date.now(),
+
         composerWasEmpty:
           !composerText(
             composer()
@@ -1765,6 +2338,13 @@
       msg.type ===
       "exec_started"
     ) {
+
+      r.cwd =
+        msg.cwd
+        ||
+        r.cwd
+        ||
+        "?";
 
       if (t) {
 
@@ -1889,17 +2469,48 @@
     }
 
 
+    const durationMs =
+      Math.max(
+        0,
+        Date.now()
+        -
+        (
+          r.startedAt
+          ||
+          Date.now()
+        )
+      );
+
+
     const payload =
-      `[ChatDock run result]\n` +
-      `Host: ${r.host}\n` +
-      `Terminal: ${t?.label || r.session}\n` +
-      `Exit code: ${code}\n` +
+      `[CHATDOCK_RESULT v1]\n` +
+      `mission: ${
+        STATE.mission.enabled
+          ? "active"
+          : "none"
+      }\n` +
+      `run_id: ${msg.run_id}\n` +
+      `host: ${hostDisplay(r.host)}\n` +
+      `terminal: ${t?.label || r.session}\n` +
+      `tmux: ${t?.tmux || "unknown"}\n` +
+      `cwd: ${r.cwd || "unknown"}\n` +
+      `exit_code: ${code}\n` +
+      `duration_ms: ${durationMs}\n` +
+      `output_truncated: ${truncated ? "true" : "false"}\n` +
+      `<output>\n` +
+      `${out}\n` +
+      `</output>\n` +
+      `[/CHATDOCK_RESULT]` +
       (
-        truncated
-          ? "Output: last 18000 characters (truncated)\n"
+        STATE.mission.enabled
+          ? (
+              `\n\nContinue the active mission from this verified ` +
+              `execution result. If another terminal action is required, ` +
+              `return exactly one next executable code block. Do not ask ` +
+              `the user to copy/paste terminal output.`
+            )
           : ""
-      ) +
-      `\n${out}`;
+      );
 
 
     STATE.runs.delete(
@@ -2418,6 +3029,87 @@
 
   shadow
     .getElementById(
+      "mission"
+    )
+    .addEventListener(
+      "click",
+      openMissionPanel
+    );
+
+
+  shadow
+    .getElementById(
+      "missionclose"
+    )
+    .addEventListener(
+      "click",
+      () =>
+        shadow
+          .getElementById(
+            "missionpanel"
+          )
+          .classList
+          .remove(
+            "open"
+          )
+    );
+
+
+  shadow
+    .getElementById(
+      "missionstart"
+    )
+    .addEventListener(
+      "click",
+      () =>
+        startMission(
+          shadow
+            .getElementById(
+              "missiongoal"
+            )
+            .value,
+
+          shadow
+            .getElementById(
+              "missionextra"
+            )
+            .value,
+
+          false
+        )
+    );
+
+
+  shadow
+    .getElementById(
+      "missionend"
+    )
+    .addEventListener(
+      "click",
+      endMission
+    );
+
+
+  shadow
+    .getElementById(
+      "automission"
+    )
+    .addEventListener(
+      "click",
+      async () => {
+
+        STATE.autoMission =
+          !STATE.autoMission;
+
+        await saveGlobalSettings();
+
+        refreshMissionUi();
+      }
+    );
+
+
+  shadow
+    .getElementById(
       "newtab"
     )
     .addEventListener(
@@ -2514,6 +3206,101 @@
           "\n```"
         )
     );
+
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.composedPath
+        &&
+        e.composedPath()
+          .includes(root)
+      )
+        return;
+
+
+      if (
+        e.key === "Enter"
+        &&
+        !e.shiftKey
+        &&
+        !e.isComposing
+      ) {
+
+        const goal =
+          autoMissionCandidate();
+
+
+        if (goal) {
+
+          e.preventDefault();
+          e.stopImmediatePropagation();
+
+          startMission(
+            goal,
+            "",
+            true
+          );
+
+          return;
+        }
+      }
+    },
+    true
+  );
+
+
+  document.addEventListener(
+    "click",
+    e => {
+
+      if (
+        e.composedPath
+        &&
+        e.composedPath()
+          .includes(root)
+      )
+        return;
+
+
+      const target =
+        e.target
+          ?.closest
+          ?.(
+            'button[data-testid="send-button"],' +
+            'button[aria-label="Send prompt"],' +
+            'button[aria-label="Gönder"],' +
+            'button[aria-label*="Send"],' +
+            'button[aria-label*="Gönder"]'
+          );
+
+
+      if (!target)
+        return;
+
+
+      const goal =
+        autoMissionCandidate();
+
+
+      if (!goal)
+        return;
+
+
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+
+      startMission(
+        goal,
+        "",
+        true
+      );
+    },
+    true
+  );
 
 
   document.addEventListener(
@@ -2700,8 +3487,105 @@
       STATE.title;
 
 
-    const meta =
+    const settingsResult =
+      await browser
+        .storage
+        .local
+        .get(
+          "chatdock:v08:settings"
+        );
+
+
+    const settings =
+      settingsResult[
+        "chatdock:v08:settings"
+      ]
+      ||
+      {};
+
+
+    if (
+      typeof settings.autoMission ===
+      "boolean"
+    ) {
+
+      STATE.autoMission =
+        settings.autoMission;
+    }
+
+
+    let meta =
       await loadMeta();
+
+
+    if (meta?.mission) {
+
+      STATE.mission = {
+        enabled:
+          !!meta.mission.enabled,
+        goal:
+          meta.mission.goal || "",
+        extra:
+          meta.mission.extra || "",
+        seeded:
+          !!meta.mission.seeded
+      };
+    }
+
+
+    if (
+      !meta?.mission
+      &&
+      STATE.convoId
+    ) {
+
+      const pendingResult =
+        await browser
+          .storage
+          .local
+          .get(
+            "chatdock:v08:pendingMission"
+          );
+
+
+      const pending =
+        pendingResult[
+          "chatdock:v08:pendingMission"
+        ];
+
+
+      if (
+        pending
+        &&
+        (
+          Date.now()
+          -
+          Number(
+            pending.ts || 0
+          )
+        )
+        <
+        120000
+      ) {
+
+        STATE.mission = {
+          enabled: true,
+          goal:
+            pending.goal || "",
+          extra:
+            pending.extra || "",
+          seeded: true
+        };
+
+
+        await browser
+          .storage
+          .local
+          .remove(
+            "chatdock:v08:pendingMission"
+          );
+      }
+    }
 
 
     if (
@@ -2735,6 +3619,7 @@
     }
 
     syncRail();
+    refreshMissionUi();
 
 
     if (
