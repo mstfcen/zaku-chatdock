@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "en-US": "Persistent per-chat terminal workspaces for ChatGPT with local and optional SSH sessions."
+  },
+  "categories": [
+    "other"
+  ],
+  "homepage": {
+    "en-US": "https://github.com/mstfcen/zaku-chatdock"
+  },
+  "support_url": {
+    "en-US": "https://github.com/mstfcen/zaku-chatdock/issues"
+  },
+  "version": {
+    "license": "MIT",
+    "approval_notes": "Zaku ChatDock uses Firefox Native Messaging to connect to an optional local Linux companion. The browser extension does not download or execute remote JavaScript. The bundled xterm.js dependency is reproduced from the pinned @xterm/xterm 6.0.0 npm dependency. Full reproducible-build instructions are included in MOZILLA_REVIEW.md."
+  }
+}

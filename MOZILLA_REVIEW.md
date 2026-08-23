@@ -1,79 +1,94 @@
-# Zaku ChatDock — Mozilla Review Build Instructions
+# Zaku ChatDock — Mozilla reviewer build notes
 
-## Requirements
+Zaku ChatDock is a Manifest V3 Firefox extension plus an optional
+Linux Native Messaging companion.
 
-- Linux
+The browser extension itself does not download or execute remote
+JavaScript.
+
+## Build requirements
+
+- Linux/macOS shell environment
 - Python 3
-- Node.js 18 or newer + npm
+- Node.js 18 or newer
+- npm
 - zip
 
-## First-party extension source
-
-- `extension/manifest.json`
-- `extension/background.js`
-- `extension/content.js`
-
-The first-party JavaScript is readable and is not intentionally minified,
-obfuscated, or transpiled.
-
-## Native Messaging host
-
-- `native/chatdock_native.py`
-
-This Python program is installed separately on the user's machine and
-communicates with the Firefox extension through Native Messaging.
+CI uses Node.js 24.
 
 ## Third-party dependency
 
-Zaku ChatDock uses:
+The only bundled browser dependency is pinned in package.json:
 
-- `@xterm/xterm` version `6.0.0`
+- @xterm/xterm 6.0.0
 
-npm package:
+npm ci reproduces the exact dependency tree from package-lock.json.
 
-https://www.npmjs.com/package/@xterm/xterm
+During the build:
 
-Upstream source:
+- node_modules/@xterm/xterm/lib/xterm.js becomes vendor/xterm.js
+- node_modules/@xterm/xterm/css/xterm.css becomes vendor/xterm.css
 
-https://github.com/xtermjs/xterm.js
+No CDN is used by the browser extension.
 
-The exact dependency is pinned in `package.json` and `package-lock.json`.
+## Reproduce browser packages
 
-## Reproduce the extension
+Run these commands from the source archive root:
 
-From the root of the submitted source archive:
+    npm ci --ignore-scripts --no-audit --no-fund
+    ./scripts/build.sh
 
-~~~bash
-npm ci --ignore-scripts --no-audit --no-fund
-./scripts/build.sh
-~~~
+The build creates Firefox development, Firefox AMO stable, and
+Chromium/Opera packages under dist/.
 
-The resulting package is:
+The AMO Listed generated tree is:
 
-~~~text
-dist/Zaku-ChatDock-v0.8.2.xpi
-~~~
+    dist/unpacked/firefox-stable/
 
-The build copies the official npm-distributed xterm JavaScript and CSS
-into `extension/vendor/`, then packages the extension.
+Its manifest intentionally contains no update_url because AMO and
+Firefox own extension updates for Listed releases.
 
-No CDN is required by the reproducible build.
+The self-hosted development generated tree is:
 
-## Validation
+    dist/unpacked/firefox-dev/
 
-~~~bash
-./scripts/check.sh
-~~~
+Its manifest retains the project's self-hosted update_url.
 
-## Functionality
+## First-party source
 
-Zaku ChatDock provides a terminal workspace next to chatgpt.com.
+First-party JavaScript is readable and is not intentionally
+minified, obfuscated, bundled, or transpiled.
 
-The extension communicates with a locally installed Python process using
-Firefox Native Messaging.
+extension/content.js contains the ChatGPT UI integration.
 
-The local native process runs with the permissions of the current
-operating-system user.
+extension/background.js contains the WebExtension background
+bridge to Native Messaging.
 
-Optional remote terminal support uses the user's normal SSH
-configuration.
+## Native companion
+
+native/chatdock_native.py is a separate local Native Messaging
+application providing terminal, tmux and optional SSH integration.
+
+The extension connects to the installed host named:
+
+    local.zaku.chatdock
+
+The native application is not downloaded or executed as browser
+extension code.
+
+The companion has a separate GitHub metadata based updater. That
+updater runs in the native application rather than the browser
+extension JavaScript environment.
+
+## Source archive exclusions
+
+The Mozilla source archive intentionally excludes generated or
+local content:
+
+- node_modules/
+- dist/
+- extension/vendor/
+- .git/
+- local secrets and configuration
+
+Run scripts/build.sh to regenerate browser artifacts.

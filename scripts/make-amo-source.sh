@@ -11,34 +11,61 @@ cd "$ROOT"
 VERSION="$(
 python3 - <<'PY'
 import json
-with open("extension/manifest.json", encoding="utf-8") as f:
+
+with open(
+    "extension/manifest.json",
+    encoding="utf-8",
+) as f:
     print(json.load(f)["version"])
 PY
 )"
 
 OUT="$ROOT/dist/zaku-chatdock-v${VERSION}-source.zip"
 
-mkdir -p dist
+mkdir -p "$ROOT/dist"
 rm -f "$OUT"
 
-zip -qr "$OUT" \
-  extension \
-  native \
-  config \
-  scripts \
-  docs \
-  package.json \
-  package-lock.json \
-  README.md \
-  SECURITY.md \
-  LICENSE \
-  MOZILLA_REVIEW.md \
-  .github/workflows \
+INCLUDE=(
+  extension
+  native
+  scripts
+  config
+  .github
+  docs
+  package.json
+  package-lock.json
+  README.md
+  FRIENDS_TR.md
+  MOZILLA_REVIEW.md
+  LICENSE
+  SECURITY.md
+  CONTRIBUTING.md
+  CHANGELOG.md
+  .gitignore
+)
+
+EXISTING=()
+
+for item in "${INCLUDE[@]}"; do
+  if [[ -e "$item" ]]; then
+    EXISTING+=("$item")
+  fi
+done
+
+zip -qr \
+  "$OUT" \
+  "${EXISTING[@]}" \
   -x \
-  'extension/vendor/*' \
-  '*/__pycache__/*' \
-  '*.pyc' \
-  '*.xpi'
+    'extension/vendor/*' \
+    'node_modules/*' \
+    'dist/*' \
+    '.git/*' \
+    '*.pyc' \
+    '__pycache__/*' \
+    '*.bak' \
+    '*.backup' \
+    '*.pre-*' \
+    '.env'
 
 test -s "$OUT"
 

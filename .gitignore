@@ -14,3 +14,5 @@ dist/*.xpi
 node_modules/
 signed/
 dist/*.zip
+dist/build/
+dist/unpacked/

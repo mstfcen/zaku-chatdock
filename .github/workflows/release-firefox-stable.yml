@@ -1,22 +1,47 @@
-name: Firefox self-hosted development release
+name: Firefox AMO Listed stable release
 
 on:
-  push:
-    tags:
-      - "dev-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing stable tag, for example v0.9.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout tagged source
+      - name: Checkout requested tag
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag }}
           fetch-depth: 0
+
+      - name: Verify tag matches manifest
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+
+          git rev-parse \
+            "refs/tags/$TAG" \
+            >/dev/null
+
+          VERSION="$(
+            python3 - <<'PY'
+          import json
+          with open("extension/manifest.json", encoding="utf-8") as f:
+              print(json.load(f)["version"])
+          PY
+          )"
+
+          EXPECTED="${TAG#v}"
+
+          test "$VERSION" = "$EXPECTED"
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -38,7 +63,7 @@ jobs:
       - name: Build Mozilla source archive
         run: ./scripts/make-amo-source.sh
 
-      - name: Resolve artifacts
+      - name: Resolve stable artifacts
         id: vars
         shell: bash
         run: |
@@ -50,7 +75,7 @@ jobs:
           PY
           )"
 
-          FIREFOX_TREE="$PWD/dist/unpacked/firefox-dev"
+          FIREFOX_TREE="$PWD/dist/unpacked/firefox-stable"
           SOURCE="$PWD/dist/zaku-chatdock-v${VERSION}-source.zip"
 
           test -s "$FIREFOX_TREE/manifest.json"
@@ -63,14 +88,13 @@ jobs:
       - name: Install Mozilla web-ext
         run: npm install --global web-ext
 
-      - name: Mozilla self-hosted lint
+      - name: Mozilla Listed lint
         run: |
           web-ext lint \
             --source-dir "${{ steps.vars.outputs.firefox_tree }}" \
-            --self-hosted \
             --warnings-as-errors
 
-      - name: Sign unlisted Firefox build
+      - name: Submit AMO Listed release
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
@@ -78,84 +102,45 @@ jobs:
           test -n "$AMO_JWT_ISSUER"
           test -n "$AMO_JWT_SECRET"
 
-          rm -rf signed
-          mkdir -p signed
-
           web-ext sign \
             --source-dir "${{ steps.vars.outputs.firefox_tree }}" \
-            --artifacts-dir signed \
-            --channel unlisted \
+            --channel listed \
+            --amo-metadata config/amo-metadata.json \
             --api-key "$AMO_JWT_ISSUER" \
             --api-secret "$AMO_JWT_SECRET" \
             --upload-source-code "${{ steps.vars.outputs.source }}" \
             --approval-timeout 900000
 
-          SIGNED="$(
-            find signed \
-              -maxdepth 1 \
-              -type f \
-              -name '*.xpi' \
-              | head -1
-          )"
-
-          test -s "$SIGNED"
+      - name: Generate Companion stable metadata
+        run: |
+          ./scripts/make-native-update-manifest.sh \
+            "${{ inputs.tag }}"
 
           cp \
-            "$SIGNED" \
-            zaku-chatdock-firefox.xpi
+            native-update.json \
+            /tmp/chatdock-native-update.json
 
-      - name: Generate development update metadata
+      - name: Publish Companion metadata to main
         run: |
-          ./scripts/make-update-manifests.sh \
-            zaku-chatdock-firefox.xpi
-
-          python3 -m json.tool updates.json >/dev/null
-          python3 -m json.tool native-update.json >/dev/null
-
-      - name: Create GitHub prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1
-          then
-            gh release upload \
-              "$GITHUB_REF_NAME" \
-              zaku-chatdock-firefox.xpi \
-              "${{ steps.vars.outputs.source }}" \
-              --clobber
-          else
-            gh release create \
-              "$GITHUB_REF_NAME" \
-              zaku-chatdock-firefox.xpi \
-              "${{ steps.vars.outputs.source }}" \
-              --title "Zaku ChatDock $GITHUB_REF_NAME" \
-              --prerelease \
-              --generate-notes
-          fi
-
-      - name: Publish development metadata to main
-        run: |
-          cp updates.json /tmp/chatdock-updates.json
-          cp native-update.json /tmp/chatdock-native-update.json
-
           git fetch origin main
           git switch -C main origin/main
 
-          cp /tmp/chatdock-updates.json updates.json
-          cp /tmp/chatdock-native-update.json native-update.json
+          cp \
+            /tmp/chatdock-native-update.json \
+            native-update.json
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add updates.json native-update.json
+          git add native-update.json
 
           if git diff --cached --quiet
           then
-            echo "Update metadata unchanged."
+            echo "Native metadata unchanged."
             exit 0
           fi
 
           git commit \
-            -m "Publish development update metadata for ${GITHUB_REF_NAME} [skip ci]"
+            -m "Publish Companion metadata for ${{ inputs.tag }} [skip ci]"
 
           git push origin main
