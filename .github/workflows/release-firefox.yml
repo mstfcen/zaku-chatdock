@@ -13,37 +13,72 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout release
+      - name: Checkout tagged source
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zip python3
 
       - name: Validate source
         run: ./scripts/check.sh
 
-      - name: Prepare extension vendor files
-        run: |
-          ./scripts/build.sh
+      - name: Build extension
+        run: ./scripts/build.sh
 
-          test -s extension/vendor/xterm.js
-          test -s extension/vendor/xterm.css
+      - name: Build Mozilla reviewer source archive
+        run: ./scripts/make-amo-source.sh
+
+      - name: Resolve version and artifacts
+        id: vars
+        shell: bash
+        run: |
+          VERSION="$(
+            python3 - <<'PY'
+          import json
+          with open("extension/manifest.json", encoding="utf-8") as f:
+              print(json.load(f)["version"])
+          PY
+          )"
+
+          XPI="$PWD/dist/Zaku-ChatDock-v${VERSION}.xpi"
+          SOURCE="$PWD/dist/zaku-chatdock-v${VERSION}-source.zip"
+
+          test -s "$XPI"
+          test -s "$SOURCE"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "xpi=$XPI" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
+
+          echo "VERSION=$VERSION"
+          ls -lh "$XPI" "$SOURCE"
 
       - name: Install Mozilla web-ext
         run: npm install --global web-ext
 
       - name: Mozilla lint
-        run: web-ext lint --source-dir extension
-
-      - name: Sign unlisted Firefox extension
-        env:
-          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
-          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
+          web-ext lint \
+            --source-dir extension
+
+      - name: Submit source and sign with Mozilla
+        env:
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          test -n "$AMO_JWT_ISSUER"
+          test -n "$AMO_JWT_SECRET"
+
           rm -rf signed
           mkdir -p signed
 
@@ -51,8 +86,9 @@ jobs:
             --source-dir extension \
             --artifacts-dir signed \
             --channel unlisted \
-            --api-key "$WEB_EXT_API_KEY" \
-            --api-secret "$WEB_EXT_API_SECRET" \
+            --api-key "$AMO_JWT_ISSUER" \
+            --api-secret "$AMO_JWT_SECRET" \
+            --upload-source-code "${{ steps.vars.outputs.source }}" \
             --approval-timeout 900000
 
           SIGNED="$(
@@ -70,12 +106,10 @@ jobs:
             "$SIGNED" \
             zaku-chatdock-firefox.xpi
 
-          echo "SIGNED_XPI=$SIGNED"
-          ls -lh \
-            "$SIGNED" \
-            zaku-chatdock-firefox.xpi
+          echo "SIGNED:"
+          ls -lh zaku-chatdock-firefox.xpi
 
-      - name: Generate update metadata
+      - name: Generate self-update manifests
         run: |
           ./scripts/make-update-manifests.sh \
             zaku-chatdock-firefox.xpi
@@ -86,7 +120,7 @@ jobs:
           python3 -m json.tool \
             native-update.json >/dev/null
 
-      - name: Create or update GitHub Release
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -97,16 +131,18 @@ jobs:
             gh release upload \
               "$GITHUB_REF_NAME" \
               zaku-chatdock-firefox.xpi \
+              "${{ steps.vars.outputs.source }}" \
               --clobber
           else
             gh release create \
               "$GITHUB_REF_NAME" \
               zaku-chatdock-firefox.xpi \
+              "${{ steps.vars.outputs.source }}" \
               --title "Zaku ChatDock $GITHUB_REF_NAME" \
               --generate-notes
           fi
 
-      - name: Publish update manifests to main
+      - name: Publish update metadata to main
         run: |
           cp updates.json \
             /tmp/chatdock-updates.json
@@ -148,3 +184,11 @@ jobs:
             -m "Publish update metadata for ${GITHUB_REF_NAME} [skip ci]"
 
           git push origin main
+
+      - name: Summary
+        run: |
+          echo "=========================================="
+          echo " Mozilla submission/signing completed"
+          echo " Version: ${{ steps.vars.outputs.version }}"
+          echo " Release: $GITHUB_REF_NAME"
+          echo "=========================================="
