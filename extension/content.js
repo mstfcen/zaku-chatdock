@@ -41,7 +41,7 @@
 
     panelOpen: true,
 
-    collapsed: false,
+    collapsed: true,
 
     autoSend: true,
 
@@ -810,6 +810,310 @@
   );
 
 
+  style.textContent += `
+
+    /*
+     * v0.8 Opera-style drawer
+     * The rail is always tiny.
+     * The terminal is an overlay drawer.
+     */
+
+    #dock{
+      right:58px !important;
+      top:8px !important;
+      height:calc(100vh - 16px) !important;
+
+      border:
+        1px solid
+        rgba(255,255,255,.10) !important;
+
+      border-radius:
+        14px 0 0 14px !important;
+
+      box-shadow:
+        -18px 0 55px
+        rgba(0,0,0,.38) !important;
+
+      transform:
+        translateX(0);
+
+      opacity:1;
+
+      transition:
+        transform .20s ease,
+        opacity .16s ease,
+        width .14s ease !important;
+
+      overflow:hidden;
+    }
+
+
+    #dock.drawer-hidden{
+      transform:
+        translateX(
+          calc(100% + 74px)
+        );
+
+      opacity:0;
+
+      pointer-events:none;
+    }
+
+
+    #dock.drawer-hidden #grab{
+      pointer-events:none;
+    }
+
+
+    /*
+     * Old collapsed layout is no longer used.
+     * Keep the class harmless for old saved state.
+     */
+
+    #dock.collapsed{
+      width:520px !important;
+      min-width:320px !important;
+    }
+
+
+    #dock.collapsed #grab,
+    #dock.collapsed #brand,
+    #dock.collapsed #host,
+    #dock.collapsed #status,
+    #dock.collapsed #tabs,
+    #dock.collapsed #termwrap,
+    #dock.collapsed #footer,
+    #dock.collapsed #picker,
+    #dock.collapsed #missionpanel{
+      display:revert !important;
+    }
+
+
+    #dock.collapsed #top{
+      display:flex !important;
+      flex-direction:row !important;
+      align-items:center !important;
+      min-height:44px !important;
+      padding:6px 8px !important;
+    }
+
+
+    #dock.collapsed #top button{
+      width:auto !important;
+      min-height:0 !important;
+      padding:6px 8px !important;
+      font-size:12px !important;
+      display:inline-flex !important;
+    }
+
+
+    #dock.collapsed #newtab::before,
+    #dock.collapsed #sessions::before,
+    #dock.collapsed #mission::before,
+    #dock.collapsed #autosend::before,
+    #dock.collapsed #hide::before{
+      content:none !important;
+    }
+
+
+    #top{
+      background:
+        rgba(18,18,18,.96) !important;
+
+      backdrop-filter:
+        blur(16px);
+
+      gap:5px !important;
+    }
+
+
+    #brand{
+      color:#b7b7b7;
+      font-size:11px !important;
+      letter-spacing:.03em;
+    }
+
+
+    #status{
+      color:#777 !important;
+      font-size:10px !important;
+    }
+
+
+    #tabs{
+      scrollbar-width:thin;
+    }
+
+
+    /*
+     * Fixed Opera-style rail
+     */
+
+    #chatdock-rail{
+      position:fixed;
+
+      top:0;
+      right:0;
+
+      width:54px;
+      height:100vh;
+
+      z-index:2147483647;
+
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+
+      gap:8px;
+
+      padding:
+        10px 6px;
+
+      background:
+        rgba(13,13,13,.96);
+
+      border-left:
+        1px solid
+        rgba(255,255,255,.08);
+
+      box-shadow:
+        -4px 0 18px
+        rgba(0,0,0,.18);
+
+      font-family:
+        ui-sans-serif,
+        system-ui,
+        sans-serif;
+    }
+
+
+    #chatdock-rail button{
+      width:42px;
+      height:42px;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      padding:0;
+
+      border:
+        1px solid
+        transparent;
+
+      border-radius:11px;
+
+      background:
+        transparent;
+
+      color:#aaa;
+
+      font:
+        600 15px
+        ui-sans-serif,
+        system-ui,
+        sans-serif;
+
+      cursor:pointer;
+
+      transition:
+        background .13s ease,
+        border-color .13s ease,
+        color .13s ease,
+        transform .13s ease;
+    }
+
+
+    #chatdock-rail button:hover{
+      color:#fff;
+
+      background:
+        rgba(255,255,255,.08);
+
+      border-color:
+        rgba(255,255,255,.08);
+    }
+
+
+    #chatdock-rail button:active{
+      transform:
+        scale(.94);
+    }
+
+
+    #chatdock-rail button.active{
+      color:#fff;
+
+      background:
+        rgba(255,255,255,.10);
+
+      border-color:
+        rgba(255,255,255,.12);
+    }
+
+
+    #chatdock-rail #rail-terminal{
+      font-family:
+        "DejaVu Sans Mono",
+        "Liberation Mono",
+        monospace;
+
+      font-size:13px;
+      font-weight:800;
+    }
+
+
+    #chatdock-rail #rail-mission.active{
+      background:#19311f;
+      border-color:#4f7d5a;
+    }
+
+
+    #rail-spacer{
+      flex:1;
+    }
+
+
+    #rail-state{
+      width:8px;
+      height:8px;
+
+      border-radius:50%;
+
+      background:#555;
+
+      margin:
+        4px 0
+        3px;
+    }
+
+
+    #rail-state.connected{
+      background:#70a77b;
+
+      box-shadow:
+        0 0 9px
+        rgba(112,167,123,.5);
+    }
+
+
+    @media (max-width:720px){
+
+      #dock{
+        right:54px !important;
+        top:0 !important;
+
+        height:100vh !important;
+
+        border-radius:0 !important;
+      }
+
+    }
+
+  `;
+
+
+
   fetch(
     browser.runtime.getURL(
       "vendor/xterm.css"
@@ -976,13 +1280,117 @@
     dock
   );
 
+  const rail =
+    document.createElement(
+      "div"
+    );
+
+  rail.id =
+    "chatdock-rail";
+
+  rail.innerHTML = `
+    <button
+      id="rail-terminal"
+      title="Terminal"
+    >
+      &gt;_
+    </button>
+
+    <button
+      id="rail-mission"
+      title="Mission Mode"
+    >
+      🎯
+    </button>
+
+    <button
+      id="rail-new"
+      title="Yeni terminal"
+    >
+      ＋
+    </button>
+
+    <button
+      id="rail-sessions"
+      title="tmux sessions"
+    >
+      ≡
+    </button>
+
+    <div id="rail-spacer"></div>
+
+    <div
+      id="rail-state"
+      title="Native bridge"
+    ></div>
+  `;
+
+  shadow.appendChild(
+    rail
+  );
+
+
+
+  function refreshRail() {
+
+    const terminalButton =
+      shadow.getElementById(
+        "rail-terminal"
+      );
+
+    const missionButton =
+      shadow.getElementById(
+        "rail-mission"
+      );
+
+    const stateDot =
+      shadow.getElementById(
+        "rail-state"
+      );
+
+
+    terminalButton
+      ?.classList
+      .toggle(
+        "active",
+        !STATE.collapsed
+      );
+
+
+    missionButton
+      ?.classList
+      .toggle(
+        "active",
+        !!STATE.mission?.enabled
+      );
+
+
+    stateDot
+      ?.classList
+      .toggle(
+        "connected",
+        !!STATE.bridge
+      );
+  }
+
 
   function syncRail() {
 
+    /*
+     * v0.8:
+     * collapsed means drawer CLOSED.
+     * The 54px rail remains visible.
+     */
+
+    dock.classList.remove(
+      "collapsed"
+    );
+
     dock.classList.toggle(
-      "collapsed",
+      "drawer-hidden",
       !!STATE.collapsed
     );
+
 
     const b =
       shadow.getElementById(
@@ -994,10 +1402,25 @@
       b.title =
         STATE.collapsed
           ? "ChatDock'u aç"
-          : "Sidebar'a küçült";
+          : "ChatDock'u kapat";
+
+      b.textContent =
+        "×";
     }
 
+
+    refreshRail();
+
+
     if (!STATE.collapsed) {
+
+      STATE.panelOpen =
+        true;
+
+      dock.classList.remove(
+        "hidden"
+      );
+
 
       const t =
         active();
@@ -1005,10 +1428,34 @@
       if (t) {
 
         requestAnimationFrame(
-          () => fit(t)
+          () => {
+
+            fit(t);
+
+          }
         );
       }
     }
+  }
+
+
+  function setDrawerOpen(
+    open
+  ) {
+
+    STATE.collapsed =
+      !open;
+
+    STATE.panelOpen =
+      true;
+
+    dock.classList.remove(
+      "hidden"
+    );
+
+    syncRail();
+
+    saveMeta();
   }
 
 
@@ -1161,6 +1608,9 @@
           ? STATE.mission.goal
           : "Mission Mode";
     }
+
+
+    refreshRail();
 
 
     const autoButton =
@@ -3029,6 +3479,157 @@
 
   shadow
     .getElementById(
+      "rail-terminal"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        setDrawerOpen(
+          STATE.collapsed
+        );
+
+      }
+    );
+
+
+  shadow
+    .getElementById(
+      "rail-mission"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        setDrawerOpen(
+          true
+        );
+
+        setTimeout(
+          openMissionPanel,
+          30
+        );
+
+      }
+    );
+
+
+  shadow
+    .getElementById(
+      "rail-new"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        setDrawerOpen(
+          true
+        );
+
+        addOwned(
+          shadow
+            .getElementById(
+              "host"
+            )
+            .value
+          ||
+          "zaku"
+        );
+
+      }
+    );
+
+
+  shadow
+    .getElementById(
+      "rail-sessions"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        setDrawerOpen(
+          true
+        );
+
+        showSessions();
+
+      }
+    );
+
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key ===
+        "Escape"
+      ) {
+
+        const missionPanel =
+          shadow.getElementById(
+            "missionpanel"
+          );
+
+        const picker =
+          shadow.getElementById(
+            "picker"
+          );
+
+
+        if (
+          missionPanel
+            ?.classList
+            .contains(
+              "open"
+            )
+        ) {
+
+          missionPanel
+            .classList
+            .remove(
+              "open"
+            );
+
+          return;
+        }
+
+
+        if (
+          picker
+            ?.classList
+            .contains(
+              "open"
+            )
+        ) {
+
+          picker
+            .classList
+            .remove(
+              "open"
+            );
+
+          return;
+        }
+
+
+        if (!STATE.collapsed) {
+
+          setDrawerOpen(
+            false
+          );
+
+        }
+      }
+
+    },
+    true
+  );
+
+
+  shadow
+    .getElementById(
       "mission"
     )
     .addEventListener(
@@ -3169,11 +3770,10 @@
       "click",
       () => {
 
-        STATE.collapsed =
-          !STATE.collapsed;
+        setDrawerOpen(
+          false
+        );
 
-        syncRail();
-        saveMeta();
       }
     );
 
@@ -3319,32 +3919,17 @@
         e.preventDefault();
 
 
-        STATE.panelOpen =
-          !STATE.panelOpen;
+        setDrawerOpen(
+          STATE.collapsed
+        );
 
 
-        dock
-          .classList
-          .toggle(
-            "hidden",
-            !STATE.panelOpen
-          );
-
-
-        if (
-          STATE.panelOpen
-        ) {
-
-          syncRail();
+        if (!STATE.collapsed) {
 
           const t =
             active();
 
-
-          if (
-            t &&
-            !STATE.collapsed
-          ) {
+          if (t) {
 
             requestAnimationFrame(
               () => {
@@ -3352,6 +3937,7 @@
                 fit(t);
 
                 t.term.focus();
+
               }
             );
           }
