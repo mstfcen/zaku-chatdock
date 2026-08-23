@@ -69,7 +69,9 @@ jobs:
       - name: Mozilla lint
         run: |
           web-ext lint \
-            --source-dir extension
+            --source-dir extension \
+            --self-hosted \
+            --warnings-as-errors
 
       - name: Submit source and sign with Mozilla
         env:
