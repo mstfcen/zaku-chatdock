@@ -1,0 +1,10 @@
+{
+  "name": "zaku-chatdock-build",
+  "private": true,
+  "version": "0.8.0",
+  "description": "Reproducible build dependencies for Zaku ChatDock",
+  "license": "MIT",
+  "dependencies": {
+    "@xterm/xterm": "6.0.0"
+  }
+}
