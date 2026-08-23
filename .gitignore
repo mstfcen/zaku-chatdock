@@ -1,0 +1,12 @@
+extension/vendor/
+__pycache__/
+*.pyc
+*.bak
+*.backup
+*.log
+.env
+.DS_Store
+
+# Generated releases are attached through GitHub Releases.
+dist/*.xpi
+!dist/.gitkeep

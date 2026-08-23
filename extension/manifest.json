@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Zaku ChatDock",
+  "version": "0.6.0",
+  "description": "Per-chat Zaku and Canavar terminal workspaces inside ChatGPT.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "chatdock@zaku.local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "storage",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*"
+      ],
+      "js": [
+        "vendor/xterm.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

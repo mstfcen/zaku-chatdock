@@ -1,0 +1,26 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest
+        run: python3 -m json.tool extension/manifest.json >/dev/null
+
+      - name: Validate Python
+        run: python3 -m py_compile native/chatdock_native.py
+
+      - name: Validate JavaScript
+        run: |
+          node --check extension/background.js
+          node --check extension/content.js
+
+      - name: Build Firefox XPI
+        run: ./scripts/build.sh
