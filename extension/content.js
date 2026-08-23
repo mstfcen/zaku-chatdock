@@ -2,6 +2,15 @@
 
 (() => {
 
+  const EXT =
+    globalThis.browser
+    ??
+    globalThis.chrome;
+
+  if (!EXT)
+    return;
+
+
   if (
     globalThis
       .__ZAKU_CHATDOCK_V05__
@@ -14,7 +23,7 @@
 
 
   const port =
-    browser.runtime.connect({
+    EXT.runtime.connect({
       name: "chatdock-ui"
     });
 
@@ -1115,7 +1124,7 @@
 
 
   fetch(
-    browser.runtime.getURL(
+    EXT.runtime.getURL(
       "vendor/xterm.css"
     )
   )

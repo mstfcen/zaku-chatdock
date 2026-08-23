@@ -1,5 +1,15 @@
 "use strict";
 
+const EXT =
+  globalThis.browser
+  ??
+  globalThis.chrome;
+
+if (!EXT)
+  throw new Error(
+    "WebExtension runtime API unavailable"
+  );
+
 let nativePort = null;
 
 const clients = new Set();
@@ -28,7 +38,7 @@ function ensureNative() {
   try {
 
     nativePort =
-      browser.runtime.connectNative(
+      EXT.runtime.connectNative(
         "local.zaku.chatdock"
       );
 
@@ -40,7 +50,7 @@ function ensureNative() {
       () => {
 
         const err =
-          browser.runtime
+          EXT.runtime
             .lastError
             ?.message
           ||
@@ -75,7 +85,7 @@ function ensureNative() {
 }
 
 
-browser.runtime.onConnect.addListener(
+EXT.runtime.onConnect.addListener(
   (port) => {
 
     if (
