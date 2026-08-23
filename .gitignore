@@ -11,3 +11,6 @@ config/config.json
 
 dist/*.xpi
 !dist/.gitkeep
+node_modules/
+signed/
+dist/*.zip
