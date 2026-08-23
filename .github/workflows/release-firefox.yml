@@ -23,24 +23,37 @@ jobs:
         with:
           node-version: 22
 
-      - name: Validate
+      - name: Validate source
         run: ./scripts/check.sh
 
-      - name: Install web-ext
+      - name: Prepare extension vendor files
+        run: |
+          ./scripts/build.sh
+
+          test -s extension/vendor/xterm.js
+          test -s extension/vendor/xterm.css
+
+      - name: Install Mozilla web-ext
         run: npm install --global web-ext
 
-      - name: Sign with Mozilla
+      - name: Mozilla lint
+        run: web-ext lint --source-dir extension
+
+      - name: Sign unlisted Firefox extension
         env:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
+          rm -rf signed
           mkdir -p signed
 
           web-ext sign \
             --source-dir extension \
             --artifacts-dir signed \
             --channel unlisted \
-            --approval-timeout 0
+            --api-key "$WEB_EXT_API_KEY" \
+            --api-secret "$WEB_EXT_API_SECRET" \
+            --approval-timeout 900000
 
           SIGNED="$(
             find signed \
@@ -50,9 +63,15 @@ jobs:
               | head -1
           )"
 
+          test -n "$SIGNED"
           test -s "$SIGNED"
 
           cp \
+            "$SIGNED" \
+            zaku-chatdock-firefox.xpi
+
+          echo "SIGNED_XPI=$SIGNED"
+          ls -lh \
             "$SIGNED" \
             zaku-chatdock-firefox.xpi
 
@@ -61,25 +80,53 @@ jobs:
           ./scripts/make-update-manifests.sh \
             zaku-chatdock-firefox.xpi
 
-      - name: Create GitHub Release
+          python3 -m json.tool \
+            updates.json >/dev/null
+
+          python3 -m json.tool \
+            native-update.json >/dev/null
+
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create \
-            "${GITHUB_REF_NAME}" \
-            zaku-chatdock-firefox.xpi \
-            --title "Zaku ChatDock ${GITHUB_REF_NAME}" \
-            --generate-notes
+          if gh release view \
+            "$GITHUB_REF_NAME" \
+            >/dev/null 2>&1
+          then
+            gh release upload \
+              "$GITHUB_REF_NAME" \
+              zaku-chatdock-firefox.xpi \
+              --clobber
+          else
+            gh release create \
+              "$GITHUB_REF_NAME" \
+              zaku-chatdock-firefox.xpi \
+              --title "Zaku ChatDock $GITHUB_REF_NAME" \
+              --generate-notes
+          fi
 
-      - name: Publish update manifests
+      - name: Publish update manifests to main
         run: |
-          cp updates.json /tmp/updates.json
-          cp native-update.json /tmp/native-update.json
+          cp updates.json \
+            /tmp/chatdock-updates.json
 
-          git switch main
+          cp native-update.json \
+            /tmp/chatdock-native-update.json
 
-          cp /tmp/updates.json updates.json
-          cp /tmp/native-update.json native-update.json
+          git fetch origin main
+
+          git switch -C \
+            main \
+            origin/main
+
+          cp \
+            /tmp/chatdock-updates.json \
+            updates.json
+
+          cp \
+            /tmp/chatdock-native-update.json \
+            native-update.json
 
           git config user.name \
             "github-actions[bot]"
@@ -91,7 +138,9 @@ jobs:
             updates.json \
             native-update.json
 
-          if git diff --cached --quiet; then
+          if git diff --cached --quiet
+          then
+            echo "Update manifests unchanged."
             exit 0
           fi
 
