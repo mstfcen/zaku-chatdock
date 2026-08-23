@@ -4,7 +4,7 @@
 
 - Linux
 - Python 3
-- Node.js + npm
+- Node.js 18 or newer + npm
 - zip
 
 ## First-party extension source
