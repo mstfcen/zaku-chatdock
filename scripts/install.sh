@@ -72,18 +72,31 @@ cat > "$NMH/local.zaku.chatdock.json" <<JSON
 }
 JSON
 
-echo "Building Firefox extension..."
+echo "Getting Firefox extension..."
 
-"$ROOT/scripts/build.sh"
+mkdir -p "$ROOT/dist"
 
-XPI="$(
-  find "$ROOT/dist" \
-    -maxdepth 1 \
-    -type f \
-    -name '*.xpi' \
-    | sort \
-    | tail -1
-)"
+XPI="$ROOT/dist/zaku-chatdock-firefox.xpi"
+
+if curl -fL --retry 3 \
+  "https://github.com/mstfcen/zaku-chatdock/releases/latest/download/zaku-chatdock-firefox.xpi" \
+  -o "$XPI"
+then
+  echo "Signed release downloaded."
+else
+  echo "No signed release yet; building development XPI."
+
+  "$ROOT/scripts/build.sh"
+
+  XPI="$(
+    find "$ROOT/dist" \
+      -maxdepth 1 \
+      -type f \
+      -name '*.xpi' \
+      | sort \
+      | tail -1
+  )"
+fi
 
 echo
 echo "Native bridge: OK"

@@ -1,0 +1,101 @@
+name: Firefox signed release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate
+        run: ./scripts/check.sh
+
+      - name: Install web-ext
+        run: npm install --global web-ext
+
+      - name: Sign with Mozilla
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          mkdir -p signed
+
+          web-ext sign \
+            --source-dir extension \
+            --artifacts-dir signed \
+            --channel unlisted \
+            --approval-timeout 0
+
+          SIGNED="$(
+            find signed \
+              -maxdepth 1 \
+              -type f \
+              -name '*.xpi' \
+              | head -1
+          )"
+
+          test -s "$SIGNED"
+
+          cp \
+            "$SIGNED" \
+            zaku-chatdock-firefox.xpi
+
+      - name: Generate update metadata
+        run: |
+          ./scripts/make-update-manifests.sh \
+            zaku-chatdock-firefox.xpi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create \
+            "${GITHUB_REF_NAME}" \
+            zaku-chatdock-firefox.xpi \
+            --title "Zaku ChatDock ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Publish update manifests
+        run: |
+          cp updates.json /tmp/updates.json
+          cp native-update.json /tmp/native-update.json
+
+          git switch main
+
+          cp /tmp/updates.json updates.json
+          cp /tmp/native-update.json native-update.json
+
+          git config user.name \
+            "github-actions[bot]"
+
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add \
+            updates.json \
+            native-update.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit \
+            -m "Publish update metadata for ${GITHUB_REF_NAME} [skip ci]"
+
+          git push origin main

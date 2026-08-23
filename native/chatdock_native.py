@@ -17,6 +17,10 @@ import subprocess
 import sys
 import termios
 import threading
+import hashlib
+import tempfile
+import time
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +36,15 @@ CONFIG_PATH = (
 )
 
 DEFAULT_REMOTE_SSH_HOST = "chatdock-remote"
+
+CHATDOCK_NATIVE_VERSION = "0.8.0"
+
+NATIVE_UPDATE_MANIFEST = (
+    "https://raw.githubusercontent.com/"
+    "mstfcen/zaku-chatdock/main/native-update.json"
+)
+
+NATIVE_UPDATE_INTERVAL = 6 * 60 * 60
 
 INPUT = sys.stdin.buffer
 OUTPUT = sys.stdout.buffer
@@ -842,7 +855,229 @@ def handle(
         ).start()
 
 
+
+def version_tuple(value: str) -> tuple[int, ...]:
+    parts = []
+
+    for part in str(value).split("."):
+        number = ""
+
+        for char in part:
+            if char.isdigit():
+                number += char
+            else:
+                break
+
+        parts.append(
+            int(number or 0)
+        )
+
+    return tuple(parts)
+
+
+def maybe_self_update() -> None:
+    """
+    Update only the installed native host.
+
+    Repo/dev copies never rewrite themselves.
+    """
+
+    current = Path(
+        __file__
+    ).resolve()
+
+    installed = (
+        Path.home()
+        / ".local"
+        / "share"
+        / "zaku-chatdock"
+        / "chatdock_native.py"
+    ).resolve()
+
+    if current != installed:
+        return
+
+    cache_dir = (
+        Path.home()
+        / ".cache"
+        / "zaku-chatdock"
+    )
+
+    cache_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    stamp = (
+        cache_dir
+        / "native-update-check"
+    )
+
+    try:
+        if (
+            stamp.exists()
+            and
+            time.time()
+            -
+            stamp.stat().st_mtime
+            <
+            NATIVE_UPDATE_INTERVAL
+        ):
+            return
+
+        stamp.touch()
+
+    except OSError:
+        pass
+
+    try:
+        request = urllib.request.Request(
+            NATIVE_UPDATE_MANIFEST,
+            headers={
+                "User-Agent":
+                    "Zaku-ChatDock/"
+                    + CHATDOCK_NATIVE_VERSION
+            }
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=3
+        ) as response:
+            metadata = json.loads(
+                response.read()
+            )
+
+        remote_version = str(
+            metadata.get(
+                "version",
+                "0"
+            )
+        )
+
+        if (
+            version_tuple(
+                remote_version
+            )
+            <=
+            version_tuple(
+                CHATDOCK_NATIVE_VERSION
+            )
+        ):
+            return
+
+        url = str(
+            metadata.get(
+                "url",
+                ""
+            )
+        )
+
+        expected_hash = str(
+            metadata.get(
+                "sha256",
+                ""
+            )
+        ).lower()
+
+        if (
+            not url.startswith(
+                "https://"
+            )
+            or
+            len(expected_hash) != 64
+        ):
+            return
+
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent":
+                    "Zaku-ChatDock-Updater/"
+                    + CHATDOCK_NATIVE_VERSION
+            }
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=5
+        ) as response:
+            payload = response.read()
+
+        actual_hash = hashlib.sha256(
+            payload
+        ).hexdigest()
+
+        if actual_hash != expected_hash:
+            return
+
+        # Basic sanity checks before replacing.
+        source = payload.decode(
+            "utf-8"
+        )
+
+        compile(
+            source,
+            str(current),
+            "exec"
+        )
+
+        fd, temp_name = tempfile.mkstemp(
+            prefix=".chatdock-native-",
+            dir=str(
+                current.parent
+            )
+        )
+
+        try:
+            with os.fdopen(
+                fd,
+                "wb"
+            ) as f:
+                f.write(
+                    payload
+                )
+                f.flush()
+                os.fsync(
+                    f.fileno()
+                )
+
+            os.chmod(
+                temp_name,
+                0o755
+            )
+
+            os.replace(
+                temp_name,
+                current
+            )
+
+        finally:
+            try:
+                os.unlink(
+                    temp_name
+                )
+            except FileNotFoundError:
+                pass
+
+        # Keep the existing Native Messaging stdin/stdout
+        # descriptors and restart into the new source.
+        os.execv(
+            sys.executable,
+            [
+                sys.executable,
+                str(current)
+            ]
+        )
+
+    except Exception:
+        # Updates must never prevent ChatDock from starting.
+        return
+
+
 def main() -> None:
+    maybe_self_update()
+
     try:
         while True:
             message = receive()
