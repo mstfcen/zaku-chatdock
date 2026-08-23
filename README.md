@@ -1,197 +1,203 @@
 # Zaku ChatDock
 
-**A terminal that follows your ChatGPT conversation.**
+Zaku ChatDock adds persistent terminal workspaces to ChatGPT.
 
-Zaku ChatDock is a small Linux + Firefox hobby project.
+Each conversation can own its own terminal session. Local sessions
+survive drawer/browser navigation through tmux, and optional remote
+sessions can use SSH.
 
-It puts a real terminal next to ChatGPT and gives every conversation its
-own persistent `tmux` workspace.
+Current development version: **0.8.3**
 
-Change chats → terminal changes with it.
+## What it provides
 
-Come back later → your terminal is still there.
+- one persistent tmux workspace per ChatGPT conversation
+- Local and optional Remote terminals
+- multiple terminal tabs per conversation
+- Sessions picker for existing workspaces
+- Run + Send
+- structured `CHATDOCK_RESULT` execution results
+- Mission Mode
+- Opera-style right rail and overlay terminal drawer
+- Firefox support
+- Chromium/Opera development build
+- Linux ChatDock Companion for Native Messaging
 
-## The nice part
+## Architecture
 
-Normally the loop is:
+The browser extension does not expose a network shell.
 
-~~~text
-ask ChatGPT
-→ copy command
-→ find terminal
-→ paste
-→ run
-→ copy output
-→ find ChatGPT again
-→ paste output
-~~~
+It communicates with a local companion through WebExtension Native
+Messaging:
 
-With ChatDock:
+    ChatGPT page
+        |
+        v
+    ChatDock extension
+        |
+        v
+    Native Messaging
+        |
+        v
+    ChatDock Companion
+        |
+        +-- dedicated ChatDock tmux server
+        |
+        +-- optional SSH -> remote tmux
 
-~~~text
-ChatGPT code block
-       │
-       ▼
-  Run + Send
-       │
-       ▼
-chat-specific tmux terminal
-       │
-       ▼
- command output
-       │
-       ▼
-back to the same ChatGPT chat
-~~~
+The local ChatDock tmux server uses its own socket and does not change
+the user's normal tmux configuration.
 
-## What it can do
+## Firefox distribution model
 
-- one persistent terminal workspace per ChatGPT conversation
-- multiple terminal tabs per chat
-- local Linux terminals
-- optional SSH remote terminals
-- existing `tmux` session browser
-- Run + Send on assistant code blocks
-- live stdout/stderr
-- exit-code reporting
-- automatic command-result handoff to ChatGPT
-- compact sidebar mode
-- Firefox Native Messaging instead of a network shell server
+There are two Firefox build targets.
 
-## Quick install
+### Stable / public
 
-For now the alpha version targets:
+The stable build is designed for an **AMO Listed** release.
 
-- Linux
-- Firefox Developer Edition
+AMO/Firefox owns extension updates, so the generated stable manifest
+does not contain a custom `update_url`.
+
+Generated tree:
+
+    dist/unpacked/firefox-stable/
+
+Package:
+
+    dist/Zaku-ChatDock-Firefox-Stable-v<VERSION>.xpi
+
+The AMO publication workflow is deliberately manual-dispatch because
+publishing to the external store is an explicit release action.
+
+### Development / self-hosted
+
+Development releases retain the GitHub-hosted Firefox update manifest.
+
+Generated tree:
+
+    dist/unpacked/firefox-dev/
+
+Package:
+
+    dist/Zaku-ChatDock-Firefox-Dev-v<VERSION>.xpi
+
+Development tags use the form:
+
+    dev-v<VERSION>
+
+## ChatDock Companion
+
+Browser extensions cannot install Native Messaging applications
+themselves.
+
+Linux therefore requires a one-time ChatDock Companion installation.
+
+From a source checkout:
+
+    ./scripts/install-companion.sh
+
+For Firefox plus Chromium/Opera development manifests:
+
+    ./scripts/install-companion.sh --all-browsers
+
+The companion installs:
+
+    ~/.local/share/zaku-chatdock/chatdock_native.py
+
+and the required per-browser Native Messaging manifests.
+
+User configuration remains under:
+
+    ~/.config/zaku-chatdock/
+
+The native host has its own update mechanism using version metadata
+and SHA-256 verification from this repository.
+
+## Developer build
+
+Requirements:
+
 - Python 3
 - tmux
-- OpenSSH
+- OpenSSH client
 - curl
+- Node.js 18+
+- npm
+- zip
 
-### Ubuntu / Debian
+Build all targets:
 
-Install the few dependencies:
+    ./scripts/build.sh
 
-~~~bash
-sudo apt install python3 tmux openssh-client curl
-~~~
+This creates Firefox development, Firefox stable, and Chromium/Opera
+artifacts under `dist/`.
 
-Then run:
+Run repository validation:
 
-~~~bash
-curl -fsSL https://raw.githubusercontent.com/mstfcen/zaku-chatdock/main/scripts/bootstrap.sh | bash
-~~~
+    ./scripts/check.sh
 
-The installer prints the generated `.xpi` path.
+Build the Mozilla reviewer source package:
 
-In Firefox Developer Edition:
+    ./scripts/make-amo-source.sh
 
-~~~text
-about:addons
-→ gear icon
-→ Install Add-on From File
-→ choose the generated XPI
-~~~
+## Chromium / Opera
 
-Reload ChatGPT and the terminal should appear.
+ChatDock now has a Chromium Manifest V3 development target using the
+same first-party JavaScript through a small `browser` / `chrome`
+runtime abstraction.
 
-## Prefer cloning it?
+Generated unpacked extension:
 
-~~~bash
-git clone https://github.com/mstfcen/zaku-chatdock.git
-cd zaku-chatdock
-./scripts/install.sh
-~~~
+    dist/unpacked/chromium/
 
-## Optional remote machine
+Generated package:
 
-Local mode needs no extra configuration.
+    dist/Zaku-ChatDock-Chromium-v<VERSION>.zip
 
-For a remote terminal, edit:
+The repository development build has a deterministic extension ID so
+the Native Messaging manifest can permit that unpacked extension.
 
-~~~text
-~/.config/zaku-chatdock/config.json
-~~~
+A future Opera Store release will need its real store extension ID in
+the installed Companion manifest.
 
-Default:
+## Terminal integrity
 
-~~~json
-{
-  "remote_host": "chatdock-remote"
-}
-~~~
+Version 0.8.3 changes the terminal transport substantially:
 
-Then create the matching SSH alias in `~/.ssh/config`:
+- streamed UTF-8 is decoded incrementally
+- local ChatDock sessions use a dedicated tmux server/socket
+- ChatDock does not modify the user's normal tmux settings
+- fast browser terminal capability responses are not treated as pasted
+  pane input
+- the synthetic terminal startup banner was removed
 
-~~~text
-Host chatdock-remote
-    HostName 192.168.1.50
-    User your-user
-~~~
+Legacy v0.8 default-server tmux sessions are preserved during migration.
 
-The remote machine also needs `tmux`.
+## Security model
 
-## Why tmux?
+- no public shell server
+- local browser/native communication uses Native Messaging
+- remote terminal support is optional and uses the user's SSH setup
+- generated artifacts, local configuration and secrets are excluded
+  from Git
+- AMO credentials are expected only as repository CI secrets
+- first-party extension JavaScript remains readable and unbundled
 
-The browser panel is only the view.
+## Status
 
-The real shell state lives in `tmux`, so refreshing ChatGPT or reopening
-the conversation does not have to destroy the terminal workspace.
+0.8.3 is currently a product-development build.
 
-## Security
+The Firefox AMO Listed workflow is prepared but public store
+publication is intentionally not performed automatically.
 
-ChatDock executes commands as your current Unix user.
+The Chromium/Opera package is a development target until interactive
+browser verification and store submission are completed.
 
-Read a command before clicking Run + Send.
+## Project
 
-The browser talks to the local Python bridge through Firefox Native
-Messaging. ChatDock does not intentionally expose a shell server on a
-TCP port.
+Repository:
 
-Remote mode uses your normal SSH configuration.
+    https://github.com/mstfcen/zaku-chatdock
 
-## Development
-
-Run all local checks:
-
-~~~bash
-./scripts/check.sh
-~~~
-
-Build the extension:
-
-~~~bash
-./scripts/build.sh
-~~~
-
-Output:
-
-~~~text
-dist/Zaku-ChatDock-v0.7.0.xpi
-~~~
-
-## Current status
-
-This is still an alpha hobby project.
-
-The interface and installer will change.
-
-## Roadmap
-
-- polished Opera-style drawer
-- nicer conversation-derived terminal names
-- multiple configurable remote hosts
-- safer approval modes
-- Firefox signing
-- easier updates
-- Chromium investigation
-
-## License
-
-MIT.
-
-## Disclaimer
-
-Independent hobby project. Not affiliated with or endorsed by OpenAI,
-ChatGPT, Mozilla, or Firefox.
+This is an independent open-source project and is not affiliated with
+OpenAI, Mozilla, Firefox, Opera or Google.

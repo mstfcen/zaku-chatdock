@@ -1,50 +1,46 @@
-# Arkadaşa atmalık kısa açıklama
+# Zaku ChatDock — arkadaş kurulumu
 
-Selam, boş vakitte **Zaku ChatDock** diye ufak bir Firefox/Linux eklentisi
-yaptım.
+Zaku ChatDock, ChatGPT konuşmalarına kalıcı terminal çalışma alanları
+ekleyen açık kaynak bir projedir.
 
-Mantığı şu: ChatGPT'nin yanına gerçek bir terminal koyuyor ve **her
-ChatGPT konuşmasına ayrı bir tmux terminali bağlıyor**.
+## Hedeflenen normal kurulum
 
-Yani bir projeyi konuştuğun chatte terminal o projede kalıyor; başka
-chate geçince onun terminaline geçiyorsun. Geri dönünce de eski terminal
-aynen duruyor.
+Public sürüm tamamlandığında Firefox tarafı normal AMO eklentisi olarak
+kurulacak ve Firefox tarafından otomatik güncellenecek.
 
-Bir de ChatGPT'nin verdiği kod bloklarında **Run + Send** var. Basınca
-komutu terminalde çalıştırıyor, çıktıyı gösteriyor ve iş bitince sonucu
-aynı chate geri gönderiyor. Sürekli komut/çıktı kopyala-yapıştır yapmaya
-gerek kalmıyor.
+Terminal erişimi için Linux'ta ayrıca tek seferlik **ChatDock
+Companion** gerekir. Bunun nedeni Firefox/Chromium eklentilerinin Native
+Messaging uygulamasını işletim sistemine kendilerinin kuramamasıdır.
 
-Şimdilik hobi projesi / alpha, Linux ve Firefox Developer Edition
-üzerinde çalışıyor.
+## Şu anki geliştirme kurulumu
 
-Ubuntu/Debian'daysan:
+Kaynak koddan:
 
-~~~bash
-sudo apt install python3 tmux openssh-client curl
-~~~
+    git clone https://github.com/mstfcen/zaku-chatdock.git
+    cd zaku-chatdock
+    ./scripts/install-companion.sh
+    ./scripts/build.sh
 
-sonra:
+Firefox geliştirme XPI:
 
-~~~bash
-curl -fsSL https://raw.githubusercontent.com/mstfcen/zaku-chatdock/main/scripts/bootstrap.sh | bash
-~~~
+    dist/Zaku-ChatDock-Firefox-Dev-v<VERSION>.xpi
 
-Kurulum sonunda sana bir `.xpi` dosyasının yolunu yazacak.
+Chromium/Opera geliştirme klasörü:
 
-Firefox Developer Edition'da:
+    dist/unpacked/chromium/
 
-~~~text
-about:addons
-→ sağ üstteki dişli
-→ Install Add-on From File
-→ çıkan XPI dosyasını seç
-~~~
+Chromium/Opera da kullanılacaksa:
 
-Sonra ChatGPT'yi yenilemen yeterli.
+    ./scripts/install-companion.sh --all-browsers
 
-Repo:
-https://github.com/mstfcen/zaku-chatdock
+## Neler var?
 
-Bir şey patlarsa bana yazın, zaten biraz da arkadaşlarla kullanıp
-nereleri saçmalıyor görmek için public yaptım :)
+- konuşma başına kalıcı tmux terminali
+- Local / Remote terminal
+- Run + Send
+- Mission Mode
+- terminal session listesi
+- Firefox
+- Chromium/Opera geliştirme build'i
+
+Public AMO/Opera Store yayınları henüz yapılmış sayılmamalıdır.
