@@ -37,7 +37,7 @@ CONFIG_PATH = (
 
 DEFAULT_REMOTE_SSH_HOST = "chatdock-remote"
 
-CHATDOCK_NATIVE_VERSION = "0.8.0"
+CHATDOCK_NATIVE_VERSION = "0.8.1"
 
 NATIVE_UPDATE_MANIFEST = (
     "https://raw.githubusercontent.com/"

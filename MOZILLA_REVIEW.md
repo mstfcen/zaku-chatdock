@@ -51,7 +51,7 @@ npm ci --ignore-scripts --no-audit --no-fund
 The resulting package is:
 
 ~~~text
-dist/Zaku-ChatDock-v0.8.0.xpi
+dist/Zaku-ChatDock-v0.8.1.xpi
 ~~~
 
 The build copies the official npm-distributed xterm JavaScript and CSS
