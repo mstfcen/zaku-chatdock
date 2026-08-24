@@ -182,6 +182,7 @@ for REQUIRED in \
   package.json \
   package-lock.json \
   MOZILLA_REVIEW.md \
+  PRIVACY.md \
   config/chromium-dev-public-key.txt
 do
   printf '%s\n' "$LIST" |

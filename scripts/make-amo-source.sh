@@ -39,6 +39,7 @@ INCLUDE=(
   MOZILLA_REVIEW.md
   LICENSE
   SECURITY.md
+  PRIVACY.md
   CONTRIBUTING.md
   CHANGELOG.md
   .gitignore

@@ -3489,6 +3489,11 @@
         }
 
 
+        companionUi(
+          false
+        );
+
+
         STATE.bridge =
           false;
 

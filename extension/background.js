@@ -18,6 +18,32 @@ let nativePort = null;
 const clients = new Set();
 
 
+function companionRequiredFor(
+  error
+) {
+
+  const text =
+    String(
+      error || ""
+    ).toLowerCase();
+
+  return [
+    "native messaging host",
+    "specified native messaging host",
+    "host not found",
+    "not found",
+    "not registered",
+    "forbidden",
+    "permission denied"
+  ].some(
+    needle =>
+      text.includes(
+        needle
+      )
+  );
+}
+
+
 function broadcast(msg) {
 
   for (const p of [...clients]) {
@@ -59,14 +85,23 @@ function ensureNative() {
           ||
           "native host disconnected";
 
+        const companionRequired =
+          companionRequiredFor(
+            err
+          );
+
         nativePort = null;
 
         broadcast({
           __chatdock_ctl:
             "close",
           error: err,
-          companion_required: true,
-          help_url: COMPANION_INSTALL_URL
+          companion_required:
+            companionRequired,
+          help_url:
+            companionRequired
+              ? COMPANION_INSTALL_URL
+              : null
         });
       }
     );

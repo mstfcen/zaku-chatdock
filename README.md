@@ -179,6 +179,14 @@ Version 0.8.3 changes the terminal transport substantially:
 
 Legacy v0.8 default-server tmux sessions are preserved during migration.
 
+## Privacy
+
+ChatDock's privacy disclosure is available in `PRIVACY.md`.
+
+In particular, terminal output stays local unless the user explicitly
+uses a feature such as `Run + Send` that inserts it into the current
+ChatGPT conversation.
+
 ## Security model
 
 - no public shell server
