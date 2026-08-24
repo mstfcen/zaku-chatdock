@@ -7,6 +7,9 @@
     ??
     globalThis.chrome;
 
+  const COMPANION_INSTALL_URL =
+    "https://github.com/mstfcen/zaku-chatdock#chatdock-companion";
+
   if (!EXT)
     return;
 
@@ -499,6 +502,25 @@
       white-space:nowrap
     }
 
+    #companion-help{
+      display:none;
+      align-items:center;
+      flex:0 0 auto;
+      padding:3px 7px;
+      border:1px solid #424242;
+      border-radius:6px;
+      color:#bdbdbd;
+      font-size:10px;
+      line-height:1.2;
+      text-decoration:none;
+      white-space:nowrap
+    }
+
+    #companion-help:hover{
+      color:#fff;
+      border-color:#666
+    }
+
     #tabs{
       display:flex;
       align-items:center;
@@ -748,6 +770,7 @@
     #dock.collapsed #brand,
     #dock.collapsed #host,
     #dock.collapsed #status,
+    #dock.collapsed #companion-help,
     #dock.collapsed #tabs,
     #dock.collapsed #termwrap,
     #dock.collapsed #footer,
@@ -889,6 +912,7 @@
     #dock.collapsed #brand,
     #dock.collapsed #host,
     #dock.collapsed #status,
+    #dock.collapsed #companion-help,
     #dock.collapsed #tabs,
     #dock.collapsed #termwrap,
     #dock.collapsed #footer,
@@ -1201,6 +1225,16 @@
         bağlanıyor
       </div>
 
+      <a
+        id="companion-help"
+        href="https://github.com/mstfcen/zaku-chatdock#chatdock-companion"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="ChatDock Companion kurulumunu aç"
+      >
+        Companion kur
+      </a>
+
     </div>
 
     <div id="tabs"></div>
@@ -1492,6 +1526,45 @@
             "none",
         2200
       );
+  }
+
+
+  function companionUi(
+    required,
+    error = ""
+  ) {
+
+    const help =
+      shadow.getElementById(
+        "companion-help"
+      );
+
+    const stateDot =
+      shadow.getElementById(
+        "rail-state"
+      );
+
+    if (help) {
+      help.style.display =
+        required
+          ? "inline-flex"
+          : "none";
+
+      help.href =
+        COMPANION_INSTALL_URL;
+
+      help.title =
+        error
+          ? `ChatDock Companion: ${error}`
+          : "ChatDock Companion kurulumunu aç";
+    }
+
+    if (stateDot) {
+      stateDot.title =
+        required
+          ? "ChatDock Companion gerekli"
+          : "Native bridge";
+    }
   }
 
 
@@ -3343,6 +3416,11 @@
         "open"
       ) {
 
+        companionUi(
+          false
+        );
+
+
         STATE.bridge =
           true;
 
@@ -3384,6 +3462,32 @@
         msg?.__chatdock_ctl ===
         "close"
       ) {
+
+        if (
+          msg?.companion_required
+        ) {
+
+          STATE.bridge =
+            false;
+
+          status(
+            "Companion gerekli"
+          );
+
+          companionUi(
+            true,
+            msg?.error || ""
+          );
+
+          toast(
+            "ChatDock Companion gerekli · Companion kur"
+          );
+
+          refreshRail();
+
+          return;
+        }
+
 
         STATE.bridge =
           false;

@@ -5,6 +5,9 @@ const EXT =
   ??
   globalThis.chrome;
 
+const COMPANION_INSTALL_URL =
+  "https://github.com/mstfcen/zaku-chatdock#chatdock-companion";
+
 if (!EXT)
   throw new Error(
     "WebExtension runtime API unavailable"
@@ -61,7 +64,9 @@ function ensureNative() {
         broadcast({
           __chatdock_ctl:
             "close",
-          error: err
+          error: err,
+          companion_required: true,
+          help_url: COMPANION_INSTALL_URL
         });
       }
     );
@@ -119,7 +124,9 @@ EXT.runtime.onConnect.addListener(
             __chatdock_ctl:
               "close",
             error:
-              "native host unavailable"
+              "ChatDock Companion unavailable",
+            companion_required: true,
+            help_url: COMPANION_INSTALL_URL
           });
 
           return;
