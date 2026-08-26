@@ -238,7 +238,7 @@ ChatGPT conversation.
 
 ## Status
 
-0.12.5 is the current public development release.
+0.12.6 is the current public development release.
 
 The Firefox AMO Listed workflow is prepared but public store
 publication is intentionally not performed automatically.
