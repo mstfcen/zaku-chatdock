@@ -1404,9 +1404,29 @@
       e.title =
         `${t.host} / tmux: ${t.tmux}`;
 
-      e.innerHTML =
-        `<span>${t.label}</span>` +
-        `<span class="x">×</span>`;
+      const labelSpan =
+        document.createElement(
+          "span"
+        );
+
+      labelSpan.textContent =
+        t.label;
+
+      const closeSpan =
+        document.createElement(
+          "span"
+        );
+
+      closeSpan.className =
+        "x";
+
+      closeSpan.textContent =
+        "×";
+
+      e.replaceChildren(
+        labelSpan,
+        closeSpan
+      );
 
       e.addEventListener(
         "click",
