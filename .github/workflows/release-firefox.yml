@@ -138,6 +138,10 @@ jobs:
           cp updates.json /tmp/chatdock-updates.json
           cp native-update.json /tmp/chatdock-native-update.json
 
+          # Generated metadata dirties the detached tag checkout.
+          # Save it above, reset the disposable CI worktree, then switch
+          # cleanly to current main before publishing.
+          git reset --hard HEAD
           git fetch origin main
           git switch -C main origin/main
 

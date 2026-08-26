@@ -15,19 +15,19 @@ Current development version: **0.12.5**
 
 ### Firefox — easiest
 
-1. Download the Mozilla-signed Firefox extension:
-   <https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.5/Zaku-ChatDock-Firefox-Signed-v0.12.5.xpi>
-2. Open the downloaded `.xpi` with Firefox if it does not open automatically.
-3. Approve Firefox's extension installation prompt.
+1. Download the Mozilla-signed extension:
+   <https://github.com/mstfcen/zaku-chatdock/releases/latest/download/Zaku-ChatDock-Firefox-Signed.xpi>
+2. Open the `.xpi` with Firefox if Firefox only downloads it.
+3. Approve the extension installation prompt.
 4. Install the Companion once using the command below.
 5. Restart Firefox and open ChatGPT.
 
 ### Chromium / Chrome / Opera / Brave
 
 1. Download:
-   <https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.5/Zaku-ChatDock-Chromium-v0.12.5.zip>
+   <https://github.com/mstfcen/zaku-chatdock/releases/latest/download/Zaku-ChatDock-Chromium.zip>
 2. Extract the ZIP.
-3. Open the extensions page and enable **Developer mode**.
+3. Enable **Developer mode** on the browser extensions page.
 4. Choose **Load unpacked** and select the extracted folder.
 5. Install the Companion once and restart the browser.
 
@@ -39,7 +39,7 @@ On Debian/Ubuntu-family Linux:
 
 Or download the package directly:
 
-<https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.5/zaku-chatdock-companion_0.12.5_all.deb>
+<https://github.com/mstfcen/zaku-chatdock/releases/latest/download/zaku-chatdock-companion.deb>
 
 **Latest Release:** <https://github.com/mstfcen/zaku-chatdock/releases/latest>
 
