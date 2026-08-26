@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.5 — Mission Engine and terminal polish
+
+- add Mission Engine v1 for autonomous inspect → act → verify workflows
+- persist per-chat mission state and Mission Auto controls
+- add Native / Zaku / Canavar health indicators
+- preserve dedicated per-chat tmux sessions across browser restarts
+- improve terminal attach geometry and tmux redraw handling
+- start terminal PTYs in raw/no-echo mode before tmux attach
+- fix terminal line drift with corrected xterm line handling
+- load official xterm.css synchronously inside ChatDock Shadow DOM
+- isolate xterm renderer box-model rules from ChatDock UI CSS
+- eliminate visible helper/accessibility glyph artifacts
+- retain Native Messaging as the sole active terminal transport
+- preserve explicit safety gates for destructive or human-required actions
+
 ## 0.9.0 — public-release candidate
 
 - add persistent missing-Companion detection and install affordance

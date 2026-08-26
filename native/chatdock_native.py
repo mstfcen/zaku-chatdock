@@ -17,6 +17,7 @@ import struct
 import subprocess
 import sys
 import termios
+import tty
 import threading
 import hashlib
 import tempfile
@@ -38,7 +39,7 @@ CONFIG_PATH = (
 
 DEFAULT_REMOTE_SSH_HOST = "chatdock-remote"
 
-CHATDOCK_NATIVE_VERSION = "0.9.0"
+CHATDOCK_NATIVE_VERSION = "0.12.5"
 
 CHATDOCK_TMUX_SOCKET = "chatdock"
 
@@ -487,6 +488,71 @@ def terminal_reader(
             pass
 
 
+# CHATDOCK_V0124_GEOMETRY_PREFLIGHT
+def preflight_tmux_geometry(
+    host: str,
+    tmux_name: str,
+    rows: Any,
+    cols: Any,
+) -> None:
+    """
+    Match the tmux window to the browser client's final geometry
+    BEFORE attaching the new client.
+
+    Why:
+    tmux draws viewport boundary markers when an attaching client
+    is temporarily smaller than the existing window. ChatDock was
+    attaching at ~51x41 and settling at ~51x43 milliseconds later.
+    Those temporary marker rows were the visual garbage seen at the
+    top of xterm even though capture-pane itself stayed clean.
+    """
+
+    try:
+        r=max(5, int(rows))
+        c=max(20, int(cols))
+    except (TypeError, ValueError):
+        return
+
+    try:
+        if host == LOCAL_HOST:
+            command=local_tmux_command(
+                "resize-window",
+                "-t",
+                tmux_name,
+                "-x",
+                str(c),
+                "-y",
+                str(r),
+            )
+        else:
+            command=ssh_command(
+                "tmux",
+                "resize-window",
+                "-t",
+                tmux_name,
+                "-x",
+                str(c),
+                "-y",
+                str(r),
+                timeout=3,
+            )
+
+        subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=4,
+            check=False,
+        )
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+    ):
+        pass
+
+
 def open_session(
     message: dict[str, Any],
 ) -> None:
@@ -570,6 +636,15 @@ def open_session(
             )
             return
 
+    # v0.12.4: tmux window and new xterm client must have
+    # identical geometry from the very first paint.
+    preflight_tmux_geometry(
+        host,
+        tmux_name,
+        rows,
+        cols,
+    )
+
     pid, fd = pty.fork()
 
     if pid == 0:
@@ -580,6 +655,44 @@ def open_session(
         )
         environment["COLORTERM"] = (
             "truecolor"
+        )
+
+        # CHATDOCK_V0123_RAW_BEFORE_TMUX
+        #
+        # IMPORTANT:
+        #
+        # xterm.js immediately answers tmux capability queries
+        # (DA/secondary-DA/OSC colour queries).
+        #
+        # pty.fork() initially inherits normal tty line discipline.
+        # If ECHO is still enabled during those first milliseconds,
+        # terminal-response bytes can be echoed back to xterm before
+        # tmux has switched the client tty to raw mode.
+        #
+        # Those bytes never enter the tmux pane buffer, which is why
+        # they appear as visual CCCC/~~~~ garbage in the browser while
+        # capture-pane remains perfectly clean.
+        #
+        # Put the client slave in raw/no-echo mode BEFORE exec(tmux).
+        try:
+            tty.setraw(
+                0,
+                when=termios.TCSANOW,
+            )
+        except Exception:
+            # tmux will still attempt its own tty setup; failure here
+            # must not make the terminal unusable.
+            pass
+
+        # CHATDOCK_V0112_CHILD_WINSIZE
+        #
+        # pty.fork() gives the child its controlling terminal.
+        # Set its final geometry BEFORE tmux starts so tmux never
+        # paints an initial 80x24 frame that is immediately reflowed.
+        set_terminal_size(
+            0,
+            rows,
+            cols,
         )
 
         try:
@@ -654,6 +767,150 @@ def open_session(
             "reused": False,
         }
     )
+
+
+# CHATDOCK_V0122_REDRAW
+def redraw_session(
+    message: dict[str, Any],
+) -> None:
+    """
+    Force tmux to repaint the complete client screen.
+
+    The browser resets its xterm before requesting this redraw.
+    tmux's pane buffer therefore remains the source of truth and
+    transient terminal-capability garbage cannot remain visible.
+    """
+
+    session_id = safe_name(
+        message.get(
+            "session",
+            "",
+        )
+    )
+
+    with SESSIONS_LOCK:
+        session = SESSIONS.get(
+            session_id
+        )
+
+    if not session:
+        send(
+            {
+                "type": "redrawn",
+                "session": session_id,
+                "ok": False,
+                "error":
+                    "terminal session is not attached",
+            }
+        )
+        return
+
+    host = session["host"]
+    tmux_name = session["tmux"]
+
+    try:
+        if host == LOCAL_HOST:
+            list_cmd = local_tmux_command(
+                "list-clients",
+                "-F",
+                "#{client_name}\t#{session_name}",
+            )
+        else:
+            list_cmd = ssh_command(
+                "tmux",
+                "list-clients",
+                "-F",
+                "#{client_name}\t#{session_name}",
+                timeout=3,
+            )
+
+        result = subprocess.run(
+            list_cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+
+        client = ""
+
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                parts = line.split(
+                    "\t",
+                    1,
+                )
+
+                if (
+                    len(parts) == 2
+                    and parts[1] == tmux_name
+                ):
+                    client = parts[0]
+                    break
+
+        if not client:
+            raise RuntimeError(
+                "tmux client not found for session "
+                + tmux_name
+            )
+
+        if host == LOCAL_HOST:
+            refresh_cmd = local_tmux_command(
+                "refresh-client",
+                "-t",
+                client,
+                "-S",
+            )
+        else:
+            refresh_cmd = ssh_command(
+                "tmux",
+                "refresh-client",
+                "-t",
+                client,
+                "-S",
+                timeout=3,
+            )
+
+        refreshed = subprocess.run(
+            refresh_cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+
+        if refreshed.returncode != 0:
+            raise RuntimeError(
+                refreshed.stderr.strip()
+                or
+                f"tmux refresh-client exit {refreshed.returncode}"
+            )
+
+        send(
+            {
+                "type": "redrawn",
+                "session": session_id,
+                "host": host,
+                "tmux": tmux_name,
+                "ok": True,
+            }
+        )
+
+    except Exception as exc:
+        send(
+            {
+                "type": "redrawn",
+                "session": session_id,
+                "host": host,
+                "tmux": tmux_name,
+                "ok": False,
+                "error": str(exc),
+            }
+        )
 
 
 def detach_session(
@@ -1027,6 +1284,91 @@ def list_sessions() -> None:
 
 
 
+def health_worker() -> None:
+    """
+    Return a lightweight host-health snapshot.
+
+    Canavar SSH probing is isolated in a worker thread so an
+    unavailable remote host cannot block terminal I/O.
+    """
+
+    remote_ok = False
+    remote_error = ""
+
+    try:
+        result = subprocess.run(
+            ssh_command(
+                "hostname",
+                timeout=2,
+            ),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+
+        remote_ok = (
+            result.returncode == 0
+        )
+
+        remote_hostname = (
+            result.stdout.strip()
+            if remote_ok
+            else REMOTE_SSH_HOST
+        )
+
+        if not remote_ok:
+            remote_error = (
+                result.stderr.strip()
+                or
+                f"SSH exit {result.returncode}"
+            )
+
+    except subprocess.TimeoutExpired:
+        remote_hostname = REMOTE_SSH_HOST
+        remote_error = (
+            "Canavar SSH zaman aşımı"
+        )
+
+    except (
+        OSError,
+        subprocess.SubprocessError,
+    ) as exc:
+        remote_hostname = REMOTE_SSH_HOST
+        remote_error = str(exc)
+
+    send(
+        {
+            "type": "health",
+
+            "native": {
+                "ok": True,
+                "version":
+                    CHATDOCK_NATIVE_VERSION,
+            },
+
+            "zaku": {
+                "ok": True,
+                "host":
+                    os.uname().nodename,
+            },
+
+            "canavar": {
+                "ok": remote_ok,
+                "host":
+                    remote_hostname,
+                "error":
+                    remote_error[:240],
+            },
+
+            "checked_at":
+                time.time(),
+        }
+    )
+
+
 def handle(
     message: dict[str, Any],
 ) -> None:
@@ -1049,6 +1391,13 @@ def handle(
                     REMOTE_SSH_HOST,
             }
         )
+        return
+
+    if message_type == "health":
+        threading.Thread(
+            target=health_worker,
+            daemon=True,
+        ).start()
         return
 
     if message_type == "open":
@@ -1082,6 +1431,14 @@ def handle(
                         "error": str(exc),
                     }
                 )
+        return
+
+    if message_type == "redraw":
+        threading.Thread(
+            target=redraw_session,
+            args=(message,),
+            daemon=True,
+        ).start()
         return
 
     if message_type == "resize":

@@ -2,18 +2,6 @@
 
 (() => {
 
-  const EXT =
-    globalThis.browser
-    ??
-    globalThis.chrome;
-
-  const COMPANION_INSTALL_URL =
-    "https://github.com/mstfcen/zaku-chatdock#chatdock-companion";
-
-  if (!EXT)
-    return;
-
-
   if (
     globalThis
       .__ZAKU_CHATDOCK_V05__
@@ -26,7 +14,7 @@
 
 
   const port =
-    EXT.runtime.connect({
+    browser.runtime.connect({
       name: "chatdock-ui"
     });
 
@@ -53,20 +41,9 @@
 
     panelOpen: true,
 
-    collapsed: true,
+    collapsed: false,
 
-    autoSend: true,
-
-    autoMission: true,
-
-    missionInjecting: false,
-
-    mission: {
-      enabled: false,
-      goal: "",
-      extra: "",
-      seeded: false
-    },
+    autoSend: localStorage.getItem("zaku-chatdock:autoSend") !== "0",
 
     currentUrl:
       location.href,
@@ -267,8 +244,8 @@
       ` · ` +
       `${
         host === "zaku"
-          ? "L"
-          : "R"
+          ? "Z"
+          : "C"
       }${n}`
     );
   }
@@ -295,17 +272,6 @@
 
       collapsed:
         STATE.collapsed,
-
-      mission: {
-        enabled:
-          !!STATE.mission.enabled,
-        goal:
-          STATE.mission.goal || "",
-        extra:
-          STATE.mission.extra || "",
-        seeded:
-          !!STATE.mission.seeded
-      },
 
       activeId:
         STATE.activeId,
@@ -502,25 +468,6 @@
       white-space:nowrap
     }
 
-    #companion-help{
-      display:none;
-      align-items:center;
-      flex:0 0 auto;
-      padding:3px 7px;
-      border:1px solid #424242;
-      border-radius:6px;
-      color:#bdbdbd;
-      font-size:10px;
-      line-height:1.2;
-      text-decoration:none;
-      white-space:nowrap
-    }
-
-    #companion-help:hover{
-      color:#fff;
-      border-color:#666
-    }
-
     #tabs{
       display:flex;
       align-items:center;
@@ -604,101 +551,6 @@
       max-width:330px
     }
 
-    #missionpanel{
-      position:absolute;
-      top:52px;
-      right:10px;
-      width:min(430px,calc(100% - 20px));
-      max-height:calc(100vh - 72px);
-      overflow:auto;
-      display:none;
-      z-index:90;
-      padding:14px;
-      background:#151515;
-      border:1px solid #414141;
-      border-radius:12px;
-      box-shadow:0 18px 60px rgba(0,0,0,.55)
-    }
-
-    #missionpanel.open{
-      display:block
-    }
-
-    #missionpanel .mh{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      margin-bottom:12px
-    }
-
-    #missionpanel .mtitle{
-      font-size:13px;
-      font-weight:800
-    }
-
-    #missionpanel .msub{
-      font-size:10px;
-      color:#888;
-      margin-top:3px
-    }
-
-    #missionpanel label{
-      display:block;
-      margin:10px 0 5px;
-      color:#aaa;
-      font-size:10px;
-      font-weight:700;
-      text-transform:uppercase;
-      letter-spacing:.05em
-    }
-
-    #missionpanel textarea{
-      display:block;
-      width:100%;
-      resize:vertical;
-      min-height:80px;
-      padding:9px 10px;
-      background:#0d0d0d;
-      color:#eee;
-      border:1px solid #343434;
-      border-radius:8px;
-      outline:none;
-      font:12px/1.4 ui-sans-serif,system-ui,sans-serif
-    }
-
-    #missionpanel textarea:focus{
-      border-color:#666
-    }
-
-    #missionextra{
-      min-height:62px!important
-    }
-
-    #missionpanel .mactions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px;
-      margin-top:12px
-    }
-
-    #missionpanel .mnote{
-      margin-top:10px;
-      color:#777;
-      font-size:10px;
-      line-height:1.35
-    }
-
-    #mission.active{
-      border-color:#4f7d5a;
-      background:#19311f
-    }
-
-    #automission.on{
-      border-color:#4f7d5a;
-      background:#19311f
-    }
-
     #picker{
       position:absolute;
       top:46px;
@@ -770,12 +622,10 @@
     #dock.collapsed #brand,
     #dock.collapsed #host,
     #dock.collapsed #status,
-    #dock.collapsed #companion-help,
     #dock.collapsed #tabs,
     #dock.collapsed #termwrap,
     #dock.collapsed #footer,
-    #dock.collapsed #picker,
-    #dock.collapsed #missionpanel{
+    #dock.collapsed #picker{
       display:none !important
     }
 
@@ -809,11 +659,6 @@
       font-size:18px
     }
 
-    #dock.collapsed #mission::before{
-      content:"🎯";
-      font-size:17px
-    }
-
     #dock.collapsed #autosend::before{
       content:"A";
       font-size:15px;
@@ -842,339 +687,27 @@
   );
 
 
-  style.textContent += `
 
-    /*
-     * v0.8 Opera-style drawer
-     * The rail is always tiny.
-     * The terminal is an overlay drawer.
-     */
-
-    #dock{
-      right:58px !important;
-      top:8px !important;
-      height:calc(100vh - 16px) !important;
-
-      border:
-        1px solid
-        rgba(255,255,255,.10) !important;
-
-      border-radius:
-        14px 0 0 14px !important;
-
-      box-shadow:
-        -18px 0 55px
-        rgba(0,0,0,.38) !important;
-
-      transform:
-        translateX(0);
-
-      opacity:1;
-
-      transition:
-        transform .20s ease,
-        opacity .16s ease,
-        width .14s ease !important;
-
-      overflow:hidden;
-    }
-
-
-    #dock.drawer-hidden{
-      transform:
-        translateX(
-          calc(100% + 74px)
-        );
-
-      opacity:0;
-
-      pointer-events:none;
-    }
-
-
-    #dock.drawer-hidden #grab{
-      pointer-events:none;
-    }
-
-
-    /*
-     * Old collapsed layout is no longer used.
-     * Keep the class harmless for old saved state.
-     */
-
-    #dock.collapsed{
-      width:520px !important;
-      min-width:320px !important;
-    }
-
-
-    #dock.collapsed #grab,
-    #dock.collapsed #brand,
-    #dock.collapsed #host,
-    #dock.collapsed #status,
-    #dock.collapsed #companion-help,
-    #dock.collapsed #tabs,
-    #dock.collapsed #termwrap,
-    #dock.collapsed #footer,
-    #dock.collapsed #picker,
-    #dock.collapsed #missionpanel{
-      display:revert !important;
-    }
-
-
-    #dock.collapsed #top{
-      display:flex !important;
-      flex-direction:row !important;
-      align-items:center !important;
-      min-height:44px !important;
-      padding:6px 8px !important;
-    }
-
-
-    #dock.collapsed #top button{
-      width:auto !important;
-      min-height:0 !important;
-      padding:6px 8px !important;
-      font-size:12px !important;
-      display:inline-flex !important;
-    }
-
-
-    #dock.collapsed #newtab::before,
-    #dock.collapsed #sessions::before,
-    #dock.collapsed #mission::before,
-    #dock.collapsed #autosend::before,
-    #dock.collapsed #hide::before{
-      content:none !important;
-    }
-
-
-    #top{
-      background:
-        rgba(18,18,18,.96) !important;
-
-      backdrop-filter:
-        blur(16px);
-
-      gap:5px !important;
-    }
-
-
-    #brand{
-      color:#b7b7b7;
-      font-size:11px !important;
-      letter-spacing:.03em;
-    }
-
-
-    #status{
-      color:#777 !important;
-      font-size:10px !important;
-    }
-
-
-    #tabs{
-      scrollbar-width:thin;
-    }
-
-
-    /*
-     * Fixed Opera-style rail
-     */
-
-    #chatdock-rail{
-      position:fixed;
-
-      top:0;
-      right:0;
-
-      width:54px;
-      height:100vh;
-
-      z-index:2147483647;
-
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-
-      gap:8px;
-
-      padding:
-        10px 6px;
-
-      background:
-        rgba(13,13,13,.96);
-
-      border-left:
-        1px solid
-        rgba(255,255,255,.08);
-
-      box-shadow:
-        -4px 0 18px
-        rgba(0,0,0,.18);
-
-      font-family:
-        ui-sans-serif,
-        system-ui,
-        sans-serif;
-    }
-
-
-    #chatdock-rail button{
-      width:42px;
-      height:42px;
-
-      display:flex;
-      align-items:center;
-      justify-content:center;
-
-      padding:0;
-
-      border:
-        1px solid
-        transparent;
-
-      border-radius:11px;
-
-      background:
-        transparent;
-
-      color:#aaa;
-
-      font:
-        600 15px
-        ui-sans-serif,
-        system-ui,
-        sans-serif;
-
-      cursor:pointer;
-
-      transition:
-        background .13s ease,
-        border-color .13s ease,
-        color .13s ease,
-        transform .13s ease;
-    }
-
-
-    #chatdock-rail button:hover{
-      color:#fff;
-
-      background:
-        rgba(255,255,255,.08);
-
-      border-color:
-        rgba(255,255,255,.08);
-    }
-
-
-    #chatdock-rail button:active{
-      transform:
-        scale(.94);
-    }
-
-
-    #chatdock-rail button.active{
-      color:#fff;
-
-      background:
-        rgba(255,255,255,.10);
-
-      border-color:
-        rgba(255,255,255,.12);
-    }
-
-
-    #chatdock-rail #rail-terminal{
-      font-family:
-        "DejaVu Sans Mono",
-        "Liberation Mono",
-        monospace;
-
-      font-size:13px;
-      font-weight:800;
-    }
-
-
-    #chatdock-rail #rail-mission.active{
-      background:#19311f;
-      border-color:#4f7d5a;
-    }
-
-
-    #rail-spacer{
-      flex:1;
-    }
-
-
-    #rail-state{
-      width:8px;
-      height:8px;
-
-      border-radius:50%;
-
-      background:#555;
-
-      margin:
-        4px 0
-        3px;
-    }
-
-
-    #rail-state.connected{
-      background:#70a77b;
-
-      box-shadow:
-        0 0 9px
-        rgba(112,167,123,.5);
-    }
-
-
-    @media (max-width:720px){
-
-      #dock{
-        right:54px !important;
-        top:0 !important;
-
-        height:100vh !important;
-
-        border-radius:0 !important;
-      }
-
-    }
-
-  `;
-
-
-
-  fetch(
-    EXT.runtime.getURL(
-      "vendor/xterm.css"
-    )
-  )
-    .then(
-      r => r.text()
-    )
-    .then(
-      css => {
-
-        const s =
-          document.createElement(
-            "style"
-          );
-
-        s.textContent =
-          css;
-
-        shadow.appendChild(
-          s
-        );
-      }
-    )
-    .catch(
-      () => {}
-    );
-
+  /*
+   * CHATDOCK_V0125_INLINE_XTERM_CORE
+   *
+   * xterm.css is renderer infrastructure, not optional decoration.
+   * Load it synchronously into this ShadowRoot before any Terminal
+   * instance is created. This removes async races and silent fetch
+   * failures around helper/accessibility/canvas positioning.
+   */
+  const xtermCoreStyle =
+    document.createElement("style");
+
+  xtermCoreStyle.dataset.chatdockXtermCore =
+    "0.12.5";
+
+  xtermCoreStyle.textContent =
+    "/**\n * Copyright (c) 2014 The xterm.js authors. All rights reserved.\n * Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)\n * https://github.com/chjj/term.js\n * @license MIT\n *\n * Permission is hereby granted, free of charge, to any person obtaining a copy\n * of this software and associated documentation files (the \"Software\"), to deal\n * in the Software without restriction, including without limitation the rights\n * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell\n * copies of the Software, and to permit persons to whom the Software is\n * furnished to do so, subject to the following conditions:\n *\n * The above copyright notice and this permission notice shall be included in\n * all copies or substantial portions of the Software.\n *\n * THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\n * THE SOFTWARE.\n *\n * Originally forked from (with the author's permission):\n *   Fabrice Bellard's javascript vt100 for jslinux:\n *   http://bellard.org/jslinux/\n *   Copyright (c) 2011 Fabrice Bellard\n *   The original design remains. The terminal itself\n *   has been extended to include xterm CSI codes, among\n *   other features.\n */\n\n/**\n *  Default styles for xterm.js\n */\n\n.xterm {\n    cursor: text;\n    position: relative;\n    user-select: none;\n    -ms-user-select: none;\n    -webkit-user-select: none;\n}\n\n.xterm.focus,\n.xterm:focus {\n    outline: none;\n}\n\n.xterm .xterm-helpers {\n    position: absolute;\n    top: 0;\n    /**\n     * The z-index of the helpers must be higher than the canvases in order for\n     * IMEs to appear on top.\n     */\n    z-index: 5;\n}\n\n.xterm .xterm-helper-textarea {\n    padding: 0;\n    border: 0;\n    margin: 0;\n    /* Move textarea out of the screen to the far left, so that the cursor is not visible */\n    position: absolute;\n    opacity: 0;\n    left: -9999em;\n    top: 0;\n    width: 0;\n    height: 0;\n    z-index: -5;\n    /** Prevent wrapping so the IME appears against the textarea at the correct position */\n    white-space: nowrap;\n    overflow: hidden;\n    resize: none;\n}\n\n.xterm .composition-view {\n    /* TODO: Composition position got messed up somewhere */\n    background: #000;\n    color: #FFF;\n    display: none;\n    position: absolute;\n    white-space: nowrap;\n    z-index: 1;\n}\n\n.xterm .composition-view.active {\n    display: block;\n}\n\n.xterm .xterm-viewport {\n    /* On OS X this is required in order for the scroll bar to appear fully opaque */\n    background-color: #000;\n    overflow-y: scroll;\n    cursor: default;\n    position: absolute;\n    right: 0;\n    left: 0;\n    top: 0;\n    bottom: 0;\n}\n\n.xterm .xterm-screen {\n    position: relative;\n}\n\n.xterm .xterm-screen canvas {\n    position: absolute;\n    left: 0;\n    top: 0;\n}\n\n.xterm-char-measure-element {\n    display: inline-block;\n    visibility: hidden;\n    position: absolute;\n    top: 0;\n    left: -9999em;\n    line-height: normal;\n}\n\n.xterm.enable-mouse-events {\n    /* When mouse events are enabled (eg. tmux), revert to the standard pointer cursor */\n    cursor: default;\n}\n\n.xterm.xterm-cursor-pointer,\n.xterm .xterm-cursor-pointer {\n    cursor: pointer;\n}\n\n.xterm.column-select.focus {\n    /* Column selection mode */\n    cursor: crosshair;\n}\n\n.xterm .xterm-accessibility:not(.debug),\n.xterm .xterm-message {\n    position: absolute;\n    left: 0;\n    top: 0;\n    bottom: 0;\n    right: 0;\n    z-index: 10;\n    color: transparent;\n    pointer-events: none;\n}\n\n.xterm .xterm-accessibility-tree:not(.debug) *::selection {\n  color: transparent;\n}\n\n.xterm .xterm-accessibility-tree {\n  font-family: monospace;\n  user-select: text;\n  white-space: pre;\n}\n\n.xterm .xterm-accessibility-tree > div {\n  transform-origin: left;\n  width: fit-content;\n}\n\n.xterm .live-region {\n    position: absolute;\n    left: -9999px;\n    width: 1px;\n    height: 1px;\n    overflow: hidden;\n}\n\n.xterm-dim {\n    /* Dim should not apply to background, so the opacity of the foreground color is applied\n     * explicitly in the generated class and reset to 1 here */\n    opacity: 1 !important;\n}\n\n.xterm-underline-1 { text-decoration: underline; }\n.xterm-underline-2 { text-decoration: double underline; }\n.xterm-underline-3 { text-decoration: wavy underline; }\n.xterm-underline-4 { text-decoration: dotted underline; }\n.xterm-underline-5 { text-decoration: dashed underline; }\n\n.xterm-overline {\n    text-decoration: overline;\n}\n\n.xterm-overline.xterm-underline-1 { text-decoration: overline underline; }\n.xterm-overline.xterm-underline-2 { text-decoration: overline double underline; }\n.xterm-overline.xterm-underline-3 { text-decoration: overline wavy underline; }\n.xterm-overline.xterm-underline-4 { text-decoration: overline dotted underline; }\n.xterm-overline.xterm-underline-5 { text-decoration: overline dashed underline; }\n\n.xterm-strikethrough {\n    text-decoration: line-through;\n}\n\n.xterm-screen .xterm-decoration-container .xterm-decoration {\n\tz-index: 6;\n\tposition: absolute;\n}\n\n.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer {\n\tz-index: 7;\n}\n\n.xterm-decoration-overview-ruler {\n    z-index: 8;\n    position: absolute;\n    top: 0;\n    right: 0;\n    pointer-events: none;\n}\n\n.xterm-decoration-top {\n    z-index: 2;\n    position: relative;\n}\n\n\n\n/* Derived from vs/base/browser/ui/scrollbar/media/scrollbar.css */\n\n/* xterm.js customization: Override xterm's cursor style */\n.xterm .xterm-scrollable-element > .scrollbar {\n    cursor: default;\n}\n\n/* Arrows */\n.xterm .xterm-scrollable-element > .scrollbar > .scra {\n\tcursor: pointer;\n\tfont-size: 11px !important;\n}\n\n.xterm .xterm-scrollable-element > .visible {\n\topacity: 1;\n\n\t/* Background rule added for IE9 - to allow clicks on dom node */\n\tbackground:rgba(0,0,0,0);\n\n\ttransition: opacity 100ms linear;\n\t/* In front of peek view */\n\tz-index: 11;\n}\n.xterm .xterm-scrollable-element > .invisible {\n\topacity: 0;\n\tpointer-events: none;\n}\n.xterm .xterm-scrollable-element > .invisible.fade {\n\ttransition: opacity 800ms linear;\n}\n\n/* Scrollable Content Inset Shadow */\n.xterm .xterm-scrollable-element > .shadow {\n\tposition: absolute;\n\tdisplay: none;\n}\n.xterm .xterm-scrollable-element > .shadow.top {\n\tdisplay: block;\n\ttop: 0;\n\tleft: 3px;\n\theight: 3px;\n\twidth: 100%;\n\tbox-shadow: var(--vscode-scrollbar-shadow, #000) 0 6px 6px -6px inset;\n}\n.xterm .xterm-scrollable-element > .shadow.left {\n\tdisplay: block;\n\ttop: 3px;\n\tleft: 0;\n\theight: 100%;\n\twidth: 3px;\n\tbox-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset;\n}\n.xterm .xterm-scrollable-element > .shadow.top-left-corner {\n\tdisplay: block;\n\ttop: 0;\n\tleft: 0;\n\theight: 3px;\n\twidth: 3px;\n}\n.xterm .xterm-scrollable-element > .shadow.top.left {\n\tbox-shadow: var(--vscode-scrollbar-shadow, #000) 6px 0 6px -6px inset;\n}\n";
+
+  shadow.appendChild(
+    xtermCoreStyle
+  );
 
   const dock =
     document.createElement(
@@ -1194,10 +727,10 @@
 
       <select id="host">
         <option value="zaku">
-          Local
+          Zaku
         </option>
         <option value="canavar">
-          Remote
+          Canavar
         </option>
       </select>
 
@@ -1207,10 +740,6 @@
 
       <button id="sessions">
         ☰ Sessions
-      </button>
-
-      <button id="mission">
-        🎯 Mission
       </button>
 
       <button id="autosend">
@@ -1225,15 +754,31 @@
         bağlanıyor
       </div>
 
-      <a
-        id="companion-help"
-        href="https://github.com/mstfcen/zaku-chatdock#chatdock-companion"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="ChatDock Companion kurulumunu aç"
+      <div
+        id="health"
+        style="
+          display:flex;
+          align-items:center;
+          gap:9px;
+          min-height:18px;
+          font-size:11px;
+          font-weight:600;
+          white-space:nowrap;
+          user-select:none;
+        "
       >
-        Companion kur
-      </a>
+        <span id="health-native"
+              style="color:#8b95a7"
+              title="Native Messaging kontrol ediliyor">● Native</span>
+
+        <span id="health-zaku"
+              style="color:#8b95a7"
+              title="Zaku kontrol ediliyor">● Zaku</span>
+
+        <span id="health-canavar"
+              style="color:#8b95a7"
+              title="Canavar kontrol ediliyor">● Canavar</span>
+      </div>
 
     </div>
 
@@ -1257,183 +802,426 @@
 
     <div id="picker"></div>
 
-    <div id="missionpanel">
-
-      <div class="mh">
-        <div>
-          <div class="mtitle">
-            🎯 Mission Mode
-          </div>
-          <div class="msub">
-            ChatGPT + ChatDock execution contract
-          </div>
-        </div>
-
-        <button id="missionclose">
-          ×
-        </button>
-      </div>
-
-      <label for="missiongoal">
-        Objective
-      </label>
-
-      <textarea
-        id="missiongoal"
-        placeholder="Example: Diagnose and permanently fix the Bluetooth problem on this machine."
-      ></textarea>
-
-      <label for="missionextra">
-        Extra instructions
-      </label>
-
-      <textarea
-        id="missionextra"
-        placeholder="Optional constraints, preferences, forbidden actions..."
-      ></textarea>
-
-      <div class="mactions">
-
-        <button id="missionstart">
-          ▶ Start / Update
-        </button>
-
-        <button id="missionend">
-          ■ End
-        </button>
-
-        <button id="automission">
-          New chat auto
-        </button>
-
-      </div>
-
-      <div class="mnote">
-        Auto mode wraps the first message of a brand-new chat
-        as the mission objective. It is sent as a normal,
-        visible user message — not as a hidden system prompt.
-      </div>
-
-    </div>
-
     <div id="toast"></div>
   `;
 
   shadow.appendChild(
     dock
   );
+  /* CHATDOCK_V0111_FINAL */
+  (() => {
+    const css=document.createElement("style");
 
-  const rail =
-    document.createElement(
-      "div"
+    css.textContent=`
+      #dock {
+        box-sizing:border-box !important;
+        overflow:visible !important;
+      }
+
+      /* Expanded header: controls wrap instead of disappearing */
+      #top {
+        display:grid !important;
+        grid-template-columns:minmax(100px,1fr) auto auto;
+        grid-template-areas:
+          "brand host terminal"
+          "sessions auto auto"
+          "health health health"
+          "status status status";
+        gap:6px !important;
+        align-items:center !important;
+        padding:7px 9px !important;
+        min-height:108px !important;
+        overflow:visible !important;
+        box-sizing:border-box !important;
+      }
+
+      #brand{grid-area:brand;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      #host{grid-area:host}
+      #newtab{grid-area:terminal}
+      #sessions{grid-area:sessions}
+      #autosend{grid-area:auto;justify-self:end}
+      #status{grid-area:status;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+      /* Old × was the inaccessible control. */
+      #hide{display:none !important}
+
+      /* Real health LEDs */
+      #health{
+        grid-area:health;
+        display:flex !important;
+        flex-wrap:wrap !important;
+        align-items:center !important;
+        gap:6px !important;
+        overflow:visible !important;
+      }
+
+      #health > span{
+        display:inline-flex !important;
+        align-items:center !important;
+        gap:5px !important;
+        padding:2px 7px !important;
+        min-width:max-content;
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:999px;
+        background:rgba(255,255,255,.055);
+        font-size:11px !important;
+        line-height:17px;
+      }
+
+      #health > span::before{
+        content:"";
+        width:8px;
+        height:8px;
+        flex:0 0 8px;
+        border-radius:50%;
+        background:currentColor;
+        box-shadow:0 0 6px currentColor;
+      }
+
+      /* Always-accessible handle outside the dock */
+      #chatdock-collapse-handle{
+        position:absolute !important;
+        left:-28px !important;
+        top:12px !important;
+        z-index:2147483647 !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        width:28px !important;
+        min-width:28px !important;
+        height:42px !important;
+        padding:0 !important;
+        border:1px solid rgba(255,255,255,.18) !important;
+        border-right:0 !important;
+        border-radius:9px 0 0 9px !important;
+        background:#181818 !important;
+        color:white !important;
+        font:700 22px/1 sans-serif !important;
+        cursor:pointer !important;
+      }
+
+      #chatdock-collapse-handle:hover{
+        background:#292929 !important;
+      }
+
+      /* TRUE collapsed mode */
+      #dock.collapsed{
+        width:46px !important;
+        min-width:46px !important;
+        max-width:46px !important;
+        overflow:visible !important;
+      }
+
+      #dock.collapsed #grab,
+      #dock.collapsed #brand,
+      #dock.collapsed #host,
+      #dock.collapsed #newtab,
+      #dock.collapsed #sessions,
+      #dock.collapsed #autosend,
+      #dock.collapsed #status,
+      #dock.collapsed #tabs,
+      #dock.collapsed #termwrap,
+      #dock.collapsed #footer,
+      #dock.collapsed #picker,
+      #dock.collapsed #toast{
+        display:none !important;
+      }
+
+      #dock.collapsed #top{
+        display:flex !important;
+        flex-direction:column !important;
+        align-items:center !important;
+        width:46px !important;
+        min-width:46px !important;
+        height:100% !important;
+        min-height:100% !important;
+        padding:64px 4px 8px !important;
+        gap:9px !important;
+        box-sizing:border-box !important;
+      }
+
+      #dock.collapsed #health{
+        display:flex !important;
+        flex-direction:column !important;
+        flex-wrap:nowrap !important;
+        align-items:center !important;
+        gap:9px !important;
+      }
+
+      #dock.collapsed #health > span{
+        width:26px !important;
+        min-width:26px !important;
+        height:26px !important;
+        padding:0 !important;
+        justify-content:center !important;
+        overflow:hidden !important;
+        font-size:0 !important;
+        border-radius:50% !important;
+      }
+
+      #dock.collapsed #health > span::before{
+        width:9px !important;
+        height:9px !important;
+        flex-basis:9px !important;
+      }
+
+
+      /* ---------- v0.12.1 TERMINAL POLISH ---------- */
+
+      #termwrap {
+        background:#0a0a0a !important;
+      }
+
+      .terminal-slot {
+        box-sizing:border-box !important;
+        padding:7px 5px 5px 7px !important;
+        background:#0a0a0a !important;
+      }
+
+      /*
+       * CHATDOCK_V0125_XTERM_BOXMODEL
+       *
+       * ChatDock's UI uses border-box globally. xterm performs its
+       * own pixel/cell/canvas measurements, so do not add padding or
+       * force ChatDock's box model onto renderer internals.
+       */
+      .xterm {
+        height:100% !important;
+        padding:0 !important;
+        box-sizing:content-box !important;
+      }
+
+      .xterm *,
+      .xterm *::before,
+      .xterm *::after {
+        box-sizing:content-box !important;
+      }
+
+      /*
+       * Belt-and-suspenders protection for the exact DOM layers that
+       * would otherwise expose prompt/accessibility text visually.
+       */
+      .xterm .xterm-helper-textarea,
+      .xterm-char-measure-element,
+      .xterm .xterm-accessibility:not(.debug),
+      .xterm .xterm-message,
+      .xterm .live-region {
+        position:absolute !important;
+        left:-9999em !important;
+      }
+
+      .xterm-screen {
+        border-radius:4px;
+      }
+
+      .xterm-viewport {
+        background:#0a0a0a !important;
+
+        scrollbar-width:thin;
+        scrollbar-color:
+          rgba(255,255,255,.18)
+          transparent;
+      }
+
+      .xterm-viewport::-webkit-scrollbar {
+        width:7px;
+      }
+
+      .xterm-viewport::-webkit-scrollbar-thumb {
+        background:
+          rgba(255,255,255,.18);
+
+        border-radius:999px;
+      }
+
+      .xterm-helper-textarea {
+        opacity:0 !important;
+      }
+
+      #tabs {
+        padding:
+          6px
+          7px
+          4px !important;
+
+        gap:5px !important;
+      }
+
+      #tabs button,
+      #tabs .tab {
+        border-radius:7px !important;
+      }
+
+      #footer {
+        min-height:34px;
+        padding:
+          5px
+          7px !important;
+
+        gap:5px !important;
+      }
+
+
+
+      /* CHATDOCK_V0122_REVEAL_CSS */
+
+      .terminal-slot {
+        opacity:0;
+        transition:opacity 90ms ease-out;
+      }
+
+      .terminal-slot.chatdock-terminal-ready {
+        opacity:1;
+      }
+
+`;
+
+    shadow.appendChild(css);
+
+    /* Remove literal bullet; CSS renders the glowing LED. */
+    for(const id of ["health-native","health-zaku","health-canavar"]){
+      const el=shadow.getElementById(id);
+      if(el) el.textContent=el.textContent.replace(/^●\s*/,"");
+    }
+
+    const handle=document.createElement("button");
+    handle.id="chatdock-collapse-handle";
+    handle.type="button";
+
+    const syncHandle=()=>{
+      const collapsed=dock.classList.contains("collapsed");
+      handle.textContent=collapsed ? "‹" : "›";
+      handle.title=collapsed ? "ChatDock'u aç" : "ChatDock'u küçült";
+    };
+
+    handle.addEventListener("click",()=>{
+      STATE.collapsed=!dock.classList.contains("collapsed");
+      dock.classList.toggle("collapsed",STATE.collapsed);
+      syncHandle();
+
+      try{ saveMeta(); }catch(_){}
+
+      if(!STATE.collapsed){
+        const t=active();
+        if(t){
+          requestAnimationFrame(()=>{
+            try{fit(t)}catch(_){}
+            try{t.term.focus()}catch(_){}
+          });
+        }
+      }
+    });
+
+    dock.appendChild(handle);
+
+    new MutationObserver(syncHandle).observe(
+      dock,
+      {attributes:true,attributeFilter:["class"]}
     );
 
-  rail.id =
-    "chatdock-rail";
-
-  rail.innerHTML = `
-    <button
-      id="rail-terminal"
-      title="Terminal"
-    >
-      &gt;_
-    </button>
-
-    <button
-      id="rail-mission"
-      title="Mission Mode"
-    >
-      🎯
-    </button>
-
-    <button
-      id="rail-new"
-      title="Yeni terminal"
-    >
-      ＋
-    </button>
-
-    <button
-      id="rail-sessions"
-      title="tmux sessions"
-    >
-      ≡
-    </button>
-
-    <div id="rail-spacer"></div>
-
-    <div
-      id="rail-state"
-      title="Native bridge"
-    ></div>
-  `;
-
-  shadow.appendChild(
-    rail
-  );
+    syncHandle();
+  })();
 
 
 
-  function refreshRail() {
+  const HEALTH_COLORS = {
+    ok: "#43d17d",
+    bad: "#ff6470",
+    checking: "#8b95a7"
+  };
 
-    const terminalButton =
+  function healthMark(
+    name,
+    value,
+    detail = ""
+  ) {
+    const el =
       shadow.getElementById(
-        "rail-terminal"
+        `health-${name}`
       );
 
-    const missionButton =
-      shadow.getElementById(
-        "rail-mission"
-      );
+    if (!el)
+      return;
 
-    const stateDot =
-      shadow.getElementById(
-        "rail-state"
-      );
+    const state =
+      value === true
+        ? "ok"
+        : value === false
+          ? "bad"
+          : "checking";
 
+    el.dataset.state = state;
+    el.style.color =
+      HEALTH_COLORS[state];
 
-    terminalButton
-      ?.classList
-      .toggle(
-        "active",
-        !STATE.collapsed
-      );
-
-
-    missionButton
-      ?.classList
-      .toggle(
-        "active",
-        !!STATE.mission?.enabled
-      );
-
-
-    stateDot
-      ?.classList
-      .toggle(
-        "connected",
-        !!STATE.bridge
-      );
+    if (detail)
+      el.title = detail;
   }
 
+  function resetHealth(
+    value = null,
+    detail = ""
+  ) {
+    for (
+      const name
+      of ["native", "zaku", "canavar"]
+    ) {
+      healthMark(
+        name,
+        value,
+        detail
+      );
+    }
+  }
+
+  function applyHealth(msg) {
+    healthMark(
+      "native",
+      msg?.native?.ok === true,
+      msg?.native?.version
+        ? `Native Messaging v${msg.native.version}`
+        : "Native Messaging"
+    );
+
+    healthMark(
+      "zaku",
+      msg?.zaku?.ok === true,
+      msg?.zaku?.host
+        ? `Zaku: ${msg.zaku.host}`
+        : "Zaku"
+    );
+
+    healthMark(
+      "canavar",
+      msg?.canavar?.ok === true,
+      msg?.canavar?.ok
+        ? (
+            msg?.canavar?.host
+              ? `Canavar: ${msg.canavar.host}`
+              : "Canavar SSH erişilebilir"
+          )
+        : (
+            msg?.canavar?.error
+            || "Canavar SSH erişilemiyor"
+          )
+    );
+  }
+
+  function requestHealth() {
+    if (!STATE.bridge)
+      return;
+
+    send({
+      type: "health"
+    });
+  }
 
   function syncRail() {
 
-    /*
-     * v0.8:
-     * collapsed means drawer CLOSED.
-     * The 54px rail remains visible.
-     */
-
-    dock.classList.remove(
-      "collapsed"
-    );
-
     dock.classList.toggle(
-      "drawer-hidden",
+      "collapsed",
       !!STATE.collapsed
     );
-
 
     const b =
       shadow.getElementById(
@@ -1445,25 +1233,10 @@
       b.title =
         STATE.collapsed
           ? "ChatDock'u aç"
-          : "ChatDock'u kapat";
-
-      b.textContent =
-        "×";
+          : "Sidebar'a küçült";
     }
 
-
-    refreshRail();
-
-
     if (!STATE.collapsed) {
-
-      STATE.panelOpen =
-        true;
-
-      dock.classList.remove(
-        "hidden"
-      );
-
 
       const t =
         active();
@@ -1471,34 +1244,10 @@
       if (t) {
 
         requestAnimationFrame(
-          () => {
-
-            fit(t);
-
-          }
+          () => fit(t)
         );
       }
     }
-  }
-
-
-  function setDrawerOpen(
-    open
-  ) {
-
-    STATE.collapsed =
-      !open;
-
-    STATE.panelOpen =
-      true;
-
-    dock.classList.remove(
-      "hidden"
-    );
-
-    syncRail();
-
-    saveMeta();
   }
 
 
@@ -1529,45 +1278,6 @@
   }
 
 
-  function companionUi(
-    required,
-    error = ""
-  ) {
-
-    const help =
-      shadow.getElementById(
-        "companion-help"
-      );
-
-    const stateDot =
-      shadow.getElementById(
-        "rail-state"
-      );
-
-    if (help) {
-      help.style.display =
-        required
-          ? "inline-flex"
-          : "none";
-
-      help.href =
-        COMPANION_INSTALL_URL;
-
-      help.title =
-        error
-          ? `ChatDock Companion: ${error}`
-          : "ChatDock Companion kurulumunu aç";
-    }
-
-    if (stateDot) {
-      stateDot.title =
-        required
-          ? "ChatDock Companion gerekli"
-          : "Native bridge";
-    }
-  }
-
-
   function status(s) {
 
     shadow
@@ -1576,390 +1286,6 @@
       )
       .textContent =
       s;
-  }
-
-
-  function hostDisplay(
-    host
-  ) {
-
-    return (
-      host === "zaku"
-        ? "local"
-        : "remote"
-    );
-  }
-
-
-  function missionEnvelope(
-    goal,
-    extra = ""
-  ) {
-
-    const cleanGoal =
-      String(goal || "")
-        .trim();
-
-    const cleanExtra =
-      String(extra || "")
-        .trim();
-
-    return (
-      `[CHATDOCK_MISSION v1]\n` +
-      `Objective:\n` +
-      `${cleanGoal}\n\n` +
-
-      `Operating contract:\n` +
-
-      `1. Own the objective and drive it to a verified completion.\n` +
-
-      `2. ChatDock is available as the terminal execution loop. ` +
-      `When terminal work is required, return exactly one ` +
-      `self-contained executable code block for the active host.\n` +
-
-      `3. Prefer inspect -> act -> verify -> continue. ` +
-      `Do not stop after merely suggesting commands when execution ` +
-      `through ChatDock can advance the objective.\n` +
-
-      `4. Results tagged [CHATDOCK_RESULT] are verified execution ` +
-      `results. Read the exit code, cwd and output, then decide the ` +
-      `next action.\n` +
-
-      `5. Never claim that a command succeeded unless a ChatDock ` +
-      `result confirms it.\n` +
-
-      `6. Do not ask the user to copy terminal output, paste commands, ` +
-      `or manually relay routine execution results. ChatDock handles ` +
-      `that loop.\n` +
-
-      `7. Ask the user only when an irreducible human action is needed: ` +
-      `physical interaction, credentials, a genuinely ambiguous choice, ` +
-      `purchase/payment, external communication, or an irreversible / ` +
-      `destructive operation requiring approval.\n` +
-
-      `8. Keep explanations concise while work is in progress. ` +
-      `When the objective is complete, state what was verified and any ` +
-      `remaining caveat.\n` +
-
-      (
-        cleanExtra
-          ? `\nMission-specific instructions:\n${cleanExtra}\n`
-          : ""
-      ) +
-
-      `[/CHATDOCK_MISSION]`
-    );
-  }
-
-
-  async function saveGlobalSettings() {
-
-    await browser
-      .storage
-      .local
-      .set({
-        "chatdock:v08:settings": {
-          autoMission:
-            !!STATE.autoMission
-        }
-      });
-  }
-
-
-  function refreshMissionUi() {
-
-    const missionButton =
-      shadow.getElementById(
-        "mission"
-      );
-
-    if (missionButton) {
-
-      missionButton.classList.toggle(
-        "active",
-        !!STATE.mission.enabled
-      );
-
-      missionButton.textContent =
-        STATE.mission.enabled
-          ? "🎯 Active"
-          : "🎯 Mission";
-
-      missionButton.title =
-        STATE.mission.enabled
-          ? STATE.mission.goal
-          : "Mission Mode";
-    }
-
-
-    refreshRail();
-
-
-    const autoButton =
-      shadow.getElementById(
-        "automission"
-      );
-
-    if (autoButton) {
-
-      autoButton.classList.toggle(
-        "on",
-        !!STATE.autoMission
-      );
-
-      autoButton.textContent =
-        STATE.autoMission
-          ? "New chat auto: ON"
-          : "New chat auto: OFF";
-    }
-  }
-
-
-  function openMissionPanel() {
-
-    const panel =
-      shadow.getElementById(
-        "missionpanel"
-      );
-
-    const goal =
-      shadow.getElementById(
-        "missiongoal"
-      );
-
-    const extra =
-      shadow.getElementById(
-        "missionextra"
-      );
-
-    goal.value =
-      STATE.mission.goal || "";
-
-    extra.value =
-      STATE.mission.extra || "";
-
-    panel.classList.toggle(
-      "open"
-    );
-
-    refreshMissionUi();
-
-    if (
-      panel.classList.contains(
-        "open"
-      )
-    ) {
-
-      setTimeout(
-        () => goal.focus(),
-        20
-      );
-    }
-  }
-
-
-  async function startMission(
-    goal,
-    extra = "",
-    auto = false
-  ) {
-
-    goal =
-      String(goal || "")
-        .trim();
-
-    extra =
-      String(extra || "")
-        .trim();
-
-    if (!goal) {
-
-      toast(
-        "Mission objective boş"
-      );
-
-      return false;
-    }
-
-
-    if (
-      !auto
-      &&
-      composerText(
-        composer()
-      ).trim()
-    ) {
-
-      toast(
-        "Mesaj kutusu dolu; Mission prompt gönderilmedi"
-      );
-
-      return false;
-    }
-
-
-    STATE.mission = {
-      enabled: true,
-      goal,
-      extra,
-      seeded: false
-    };
-
-
-    if (!STATE.convoId) {
-
-      await browser
-        .storage
-        .local
-        .set({
-          "chatdock:v08:pendingMission": {
-            goal,
-            extra,
-            enabled: true,
-            seeded: true,
-            ts: Date.now()
-          }
-        });
-    }
-
-
-    await saveMeta();
-
-    refreshMissionUi();
-
-
-    STATE.missionInjecting =
-      true;
-
-
-    const inserted =
-      insertComposer(
-        missionEnvelope(
-          goal,
-          extra
-        )
-      );
-
-
-    if (!inserted) {
-
-      STATE.missionInjecting =
-        false;
-
-      return false;
-    }
-
-
-    await sleep(
-      80
-    );
-
-
-    const ok =
-      await submitComposer();
-
-
-    STATE.mission.seeded =
-      !!ok;
-
-
-    STATE.missionInjecting =
-      false;
-
-
-    await saveMeta();
-
-    refreshMissionUi();
-
-
-    shadow
-      .getElementById(
-        "missionpanel"
-      )
-      ?.classList
-      .remove(
-        "open"
-      );
-
-
-    toast(
-      ok
-        ? "Mission başladı"
-        : "Mission prompt hazır; Send bulunamadı"
-    );
-
-
-    return ok;
-  }
-
-
-  async function endMission() {
-
-    STATE.mission.enabled =
-      false;
-
-    STATE.mission.seeded =
-      false;
-
-    await saveMeta();
-
-    refreshMissionUi();
-
-
-    const current =
-      composerText(
-        composer()
-      ).trim();
-
-
-    if (!current) {
-
-      STATE.missionInjecting =
-        true;
-
-      insertComposer(
-        "[CHATDOCK_MISSION_END]\n" +
-        "The active ChatDock mission is ended. " +
-        "Return to normal conversation mode.\n" +
-        "[/CHATDOCK_MISSION_END]"
-      );
-
-      await sleep(
-        60
-      );
-
-      await submitComposer();
-
-      STATE.missionInjecting =
-        false;
-    }
-
-
-    toast(
-      "Mission ended"
-    );
-  }
-
-
-  function autoMissionCandidate() {
-
-    if (
-      !STATE.autoMission
-      ||
-      STATE.missionInjecting
-      ||
-      STATE.convoId
-      ||
-      STATE.mission.seeded
-    ) {
-
-      return "";
-    }
-
-
-    return composerText(
-      composer()
-    ).trim();
   }
 
 
@@ -2078,35 +1404,9 @@
       e.title =
         `${t.host} / tmux: ${t.tmux}`;
 
-      const labelSpan =
-        document.createElement(
-          "span"
-        );
-
-      labelSpan.textContent =
-        t.label;
-
-
-      const closeSpan =
-        document.createElement(
-          "span"
-        );
-
-      closeSpan.className =
-        "x";
-
-      closeSpan.textContent =
-        "×";
-
-
-      e.appendChild(
-        labelSpan
-      );
-
-      e.appendChild(
-        closeSpan
-      );
-
+      e.innerHTML =
+        `<span>${t.label}</span>` +
+        `<span class="x">×</span>`;
 
       e.addEventListener(
         "click",
@@ -2187,6 +1487,133 @@
   }
 
 
+  const CHATDOCK_V0112_CLEAN_ATTACH = true;
+
+  /*
+   * v0.12.1 attach-noise guard.
+   *
+   * Some tmux/PTY capability negotiation can leak a short visual
+   * probe line during the first repaint. We only filter extremely
+   * characteristic garbage during a short startup window.
+   * Normal terminal output is untouched.
+   */
+  function cleanAttachNoise(
+    t,
+    value
+  ) {
+    const raw =
+      String(value || "");
+
+    if (
+      !t?.attachCleanUntil
+      ||
+      Date.now() >
+        t.attachCleanUntil
+    ) {
+      return raw;
+    }
+
+    const pieces =
+      raw.split(
+        /(\r\n|\n|\r)/
+      );
+
+    return pieces
+      .map(
+        piece => {
+          if (
+            piece === "\n"
+            ||
+            piece === "\r"
+            ||
+            piece === "\r\n"
+          ) {
+            return piece;
+          }
+
+          const visible =
+            stripAnsi(piece)
+              .replace(
+                /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g,
+                ""
+              )
+              .trim();
+
+          if (
+            visible.length >= 10
+            &&
+            (
+              /^[i~$><^?_=+\-|\\/]+$/.test(
+                visible
+              )
+              ||
+              /^i{10,}~*$/.test(
+                visible
+              )
+              ||
+              /^~{10,}$/.test(
+                visible
+              )
+            )
+          ) {
+            return "";
+          }
+
+          return piece;
+        }
+      )
+      .join("");
+  }
+
+
+  // CHATDOCK_V0124_STABLE_GEOMETRY
+  async function waitForStableTerminalGeometry(
+    t,
+    timeoutMs = 900
+  ) {
+    const started=Date.now();
+
+    let last="";
+    let stable=0;
+
+    while (
+      Date.now()-started <
+      timeoutMs
+    ) {
+      try {
+        fit(t);
+      }
+      catch (_) {}
+
+      const now=
+        `${t.term.cols}x${t.term.rows}`;
+
+      if (now === last) {
+        stable += 1;
+      }
+      else {
+        last=now;
+        stable=0;
+      }
+
+      /*
+       * Four identical samples ~45ms apart means layout,
+       * mission bar and tab strip have settled.
+       */
+      if (stable >= 3) {
+        return;
+      }
+
+      await sleep(45);
+    }
+
+    try {
+      fit(t);
+    }
+    catch (_) {}
+  }
+
+
   function makeTerminal(
     meta
   ) {
@@ -2219,6 +1646,26 @@
 
         cursorBlink: true,
 
+        /*
+         * CHATDOCK_V0121_TERMINAL_POLISH
+         *
+         * Most ordinary command output uses LF rather than CRLF.
+         * xterm's default convertEol=false keeps the previous
+         * horizontal cursor column on every LF, producing the
+         * diagonal / drifting text visible in the dock.
+         */
+        convertEol: true,
+
+        cursorStyle: "bar",
+        cursorWidth: 2,
+
+        fontWeight: "400",
+        fontWeightBold: "600",
+
+        letterSpacing: 0,
+
+        scrollOnUserInput: true,
+
         fontFamily:
           '"DejaVu Sans Mono",' +
           '"Liberation Mono",' +
@@ -2226,7 +1673,7 @@
 
         fontSize: 13,
 
-        lineHeight: 1.12,
+        lineHeight: 1.18,
 
         scrollback: 12000,
 
@@ -2246,10 +1693,23 @@
     );
 
 
+
     const t = {
       ...meta,
       term,
-      slot
+      slot,
+
+      /*
+       * Only the first attach/repaint gets filtering.
+       * 2.5 seconds is enough for tmux capability negotiation.
+       */
+      attachCleanUntil:
+        Date.now() + 2500,
+
+      // CHATDOCK_V0122_VISUAL_ATTACH
+      attachVisualReady: false,
+      redrawFallbackTimer: null
+
     };
 
 
@@ -2285,19 +1745,31 @@
     );
 
 
-    send({
-      type: "open",
-      session:
-        meta.id,
-      host:
-        meta.host,
-      tmux:
-        meta.tmux,
-      cols:
-        term.cols,
-      rows:
-        term.rows
-    });
+    /*
+     * CHATDOCK_V0112_DEFERRED_OPEN
+     *
+     * xterm starts at its generic 80x24 geometry.
+     * Do not attach tmux at that fake size and resize it
+     * immediately afterwards. Fit to the actual dock first.
+     */
+    /*
+     * v0.12.4:
+     * do not attach during an intermediate browser layout size.
+     */
+    (async () => {
+      await waitForStableTerminalGeometry(
+        t
+      );
+
+      send({
+        type: "open",
+        session: meta.id,
+        host: meta.host,
+        tmux: meta.tmux,
+        cols: term.cols,
+        rows: term.rows
+      });
+    })();
   }
 
 
@@ -2800,6 +2272,10 @@
     )
       return;
 
+    missionObserveRun(
+      script
+    );
+
 
     const runId =
       (
@@ -2828,12 +2304,6 @@
 
         output:
           "",
-
-        cwd:
-          null,
-
-        startedAt:
-          Date.now(),
 
         composerWasEmpty:
           !composerText(
@@ -2889,13 +2359,6 @@
       msg.type ===
       "exec_started"
     ) {
-
-      r.cwd =
-        msg.cwd
-        ||
-        r.cwd
-        ||
-        "?";
 
       if (t) {
 
@@ -3020,48 +2483,23 @@
     }
 
 
-    const durationMs =
-      Math.max(
-        0,
-        Date.now()
-        -
-        (
-          r.startedAt
-          ||
-          Date.now()
-        )
-      );
-
+    missionRunFinished(
+      r,
+      code,
+      out
+    );
 
     const payload =
-      `[CHATDOCK_RESULT v1]\n` +
-      `mission: ${
-        STATE.mission.enabled
-          ? "active"
-          : "none"
-      }\n` +
-      `run_id: ${msg.run_id}\n` +
-      `host: ${hostDisplay(r.host)}\n` +
-      `terminal: ${t?.label || r.session}\n` +
-      `tmux: ${t?.tmux || "unknown"}\n` +
-      `cwd: ${r.cwd || "unknown"}\n` +
-      `exit_code: ${code}\n` +
-      `duration_ms: ${durationMs}\n` +
-      `output_truncated: ${truncated ? "true" : "false"}\n` +
-      `<output>\n` +
-      `${out}\n` +
-      `</output>\n` +
-      `[/CHATDOCK_RESULT]` +
+      `[ChatDock run result]\n` +
+      `Host: ${r.host}\n` +
+      `Terminal: ${t?.label || r.session}\n` +
+      `Exit code: ${code}\n` +
       (
-        STATE.mission.enabled
-          ? (
-              `\n\nContinue the active mission from this verified ` +
-              `execution result. If another terminal action is required, ` +
-              `return exactly one next executable code block. Do not ask ` +
-              `the user to copy/paste terminal output.`
-            )
+        truncated
+          ? "Output: last 18000 characters (truncated)\n"
           : ""
-      );
+      ) +
+      `\n${out}`;
 
 
     STATE.runs.delete(
@@ -3270,8 +2708,8 @@
       b.textContent =
         `${
           s.host === "zaku"
-            ? "LOCAL"
-            : "REMOTE"
+            ? "ZAKU"
+            : "CANAVAR"
         } · ${label}`;
 
 
@@ -3299,6 +2737,1305 @@
       );
     }
   }
+
+
+
+  /*
+   * CHATDOCK_V012_MISSION_ENGINE
+   *
+   * Autonomous browser-side orchestration:
+   *
+   * user objective
+   *   -> mission contract
+   *   -> ChatGPT answer
+   *   -> exactly one executable code block
+   *   -> ChatDock run
+   *   -> result automatically returned
+   *   -> next ChatGPT step
+   *   -> verified completion
+   */
+
+  if (!STATE.mission) {
+    STATE.mission = {
+      auto:
+        localStorage.getItem(
+          "zaku-chatdock:mission-auto"
+        ) !== "0",
+
+      active: false,
+      id: "",
+      objective: "",
+      status: "IDLE",
+      step: 0,
+      note: "Hazır",
+
+      baselineAssistant: "",
+      lastAssistant: "",
+      lastRunHash: "",
+      dispatchingHash: "",
+
+      failSignature: "",
+      failCount: 0,
+      protocolErrors: 0,
+
+      maxSteps: 30
+    };
+  }
+
+
+  let missionScanTimer = null;
+
+
+  function missionHash(value) {
+    const text =
+      String(value || "");
+
+    let h = 2166136261;
+
+    for (
+      let i = 0;
+      i < text.length;
+      i++
+    ) {
+      h ^= text.charCodeAt(i);
+
+      h = Math.imul(
+        h,
+        16777619
+      );
+    }
+
+    return (
+      h >>> 0
+    ).toString(16);
+  }
+
+
+  function missionStorageKey() {
+    let key = "";
+
+    try {
+      key =
+        conversationInfo()
+          ?.chatKey
+        || "";
+    }
+    catch (_) {}
+
+    if (!key) {
+      key =
+        location.pathname
+        || "unknown";
+    }
+
+    return (
+      "zaku-chatdock:mission:"
+      + key
+    );
+  }
+
+
+  function missionSave() {
+    try {
+      localStorage.setItem(
+        missionStorageKey(),
+        JSON.stringify(
+          STATE.mission
+        )
+      );
+
+      localStorage.setItem(
+        "zaku-chatdock:mission-auto",
+        STATE.mission.auto
+          ? "1"
+          : "0"
+      );
+    }
+    catch (_) {}
+  }
+
+
+  function missionRestore() {
+    const auto =
+      localStorage.getItem(
+        "zaku-chatdock:mission-auto"
+      ) !== "0";
+
+    try {
+      const raw =
+        localStorage.getItem(
+          missionStorageKey()
+        );
+
+      if (raw) {
+        const saved =
+          JSON.parse(raw);
+
+        if (
+          saved
+          && typeof saved === "object"
+        ) {
+          Object.assign(
+            STATE.mission,
+            saved
+          );
+        }
+      }
+    }
+    catch (_) {}
+
+    STATE.mission.auto = auto;
+
+    missionRender();
+  }
+
+
+  function missionStatusColor(status) {
+    switch (status) {
+      case "RUNNING":
+        return "#43d17d";
+
+      case "VERIFYING":
+        return "#58a6ff";
+
+      case "HUMAN_NEEDED":
+        return "#ffbd4a";
+
+      case "BLOCKED":
+        return "#ff6470";
+
+      case "DONE":
+        return "#8bdc65";
+
+      case "PAUSED":
+        return "#b692ff";
+
+      default:
+        return "#8b95a7";
+    }
+  }
+
+
+  function missionRender() {
+    const m =
+      STATE.mission;
+
+    const bar =
+      shadow.getElementById(
+        "missionbar"
+      );
+
+    if (!bar)
+      return;
+
+    const dot =
+      shadow.getElementById(
+        "mission-dot"
+      );
+
+    const state =
+      shadow.getElementById(
+        "mission-state"
+      );
+
+    const objective =
+      shadow.getElementById(
+        "mission-objective"
+      );
+
+    const step =
+      shadow.getElementById(
+        "mission-step"
+      );
+
+    const note =
+      shadow.getElementById(
+        "mission-note"
+      );
+
+    const auto =
+      shadow.getElementById(
+        "mission-auto"
+      );
+
+    const stop =
+      shadow.getElementById(
+        "mission-stop"
+      );
+
+    if (dot) {
+      dot.style.color =
+        missionStatusColor(
+          m.status
+        );
+    }
+
+    if (state) {
+      state.textContent =
+        m.status || "IDLE";
+    }
+
+    if (objective) {
+      objective.textContent =
+        m.objective
+          ? m.objective
+              .replace(/\s+/g, " ")
+              .slice(0, 76)
+          : "Mission bekleniyor";
+    }
+
+    if (step) {
+      step.textContent =
+        m.step
+          ? `Step ${m.step}`
+          : "Step —";
+    }
+
+    if (note) {
+      note.textContent =
+        m.note || "";
+    }
+
+    if (auto) {
+      auto.textContent =
+        m.auto
+          ? "MISSION AUTO ON"
+          : "MISSION AUTO OFF";
+    }
+
+    if (stop) {
+      stop.disabled =
+        !m.active;
+
+      stop.style.opacity =
+        m.active
+          ? "1"
+          : ".45";
+    }
+  }
+
+
+  function missionSet(
+    status,
+    note = ""
+  ) {
+    STATE.mission.status =
+      status;
+
+    if (note) {
+      STATE.mission.note =
+        note;
+    }
+
+    missionSave();
+    missionRender();
+  }
+
+
+  function missionLatestAssistant() {
+    const nodes =
+      document.querySelectorAll(
+        '[data-message-author-role="assistant"]'
+      );
+
+    return (
+      nodes[
+        nodes.length - 1
+      ]
+      || null
+    );
+  }
+
+
+  function missionAssistantFingerprint(
+    node = missionLatestAssistant()
+  ) {
+    if (!node)
+      return "";
+
+    const text =
+      node.innerText
+      || node.textContent
+      || "";
+
+    const codes =
+      [
+        ...node.querySelectorAll(
+          "pre code"
+        )
+      ]
+      .map(
+        el =>
+          el.innerText
+          || el.textContent
+          || ""
+      )
+      .join("\n---CODE---\n");
+
+    return missionHash(
+      text
+      + "\n---\n"
+      + codes
+    );
+  }
+
+
+  function missionAssistantBusy() {
+    return !!(
+      document.querySelector(
+        'button[data-testid="stop-button"]'
+      )
+      ||
+      document.querySelector(
+        'button[aria-label*="Stop"]'
+      )
+      ||
+      document.querySelector(
+        'button[aria-label*="Durdur"]'
+      )
+    );
+  }
+
+
+  function missionDangerousScript(
+    script
+  ) {
+    const rules = [
+      /rm\s+-[^\n]*r[^\n]*f[^\n]*(?:\/(?:\s|$)|--no-preserve-root)/i,
+      /\bmkfs(?:\.[A-Za-z0-9]+)?\b/i,
+      /\bwipefs\b/i,
+      /\bdd\b[^\n]*\bof=\/dev\//i,
+      /\bcryptsetup\s+luksFormat\b/i,
+      /\b(?:shutdown|poweroff|reboot)\b/i
+    ];
+
+    return rules.some(
+      rx => rx.test(script)
+    );
+  }
+
+
+  function missionBypassText(text) {
+    const x =
+      String(text || "")
+        .trimStart();
+
+    return (
+      x.startsWith(
+        "[ChatDock run result]"
+      )
+      ||
+      x.startsWith(
+        "[CHATDOCK_RESULT"
+      )
+      ||
+      x.startsWith(
+        "[CHATDOCK_MISSION"
+      )
+    );
+  }
+
+
+  function missionContract(
+    objective,
+    mode = "NEW"
+  ) {
+    const t =
+      active();
+
+    const host =
+      t?.host || "zaku";
+
+    const missionId =
+      STATE.mission.id;
+
+    const header =
+      mode === "NEW"
+        ? "[CHATDOCK_MISSION v1]"
+        : "[CHATDOCK_MISSION_UPDATE v1]";
+
+    return [
+      header,
+
+      `mission_id: ${missionId}`,
+
+      `objective: ${objective}`,
+
+      `active_host: ${host}`,
+
+      "",
+
+      "Operating contract:",
+
+      "1. Own the objective and drive it to a verified completion.",
+
+      "2. ChatDock is available as the terminal execution loop. When terminal work is required, return exactly ONE self-contained executable shell code block for the active host.",
+
+      "3. Prefer inspect -> act -> verify -> continue. Do not stop after merely suggesting commands when execution through ChatDock can advance the objective.",
+
+      "4. ChatDock automatically runs the executable block and returns the run result to you. Read that result and continue with the next necessary step without asking the user to relay routine output.",
+
+      "5. Never claim success unless the returned execution result or another explicit verification proves it.",
+
+      "6. If work belongs on the other machine, route through the existing ssh aliases (zaku/canavar) from the active host when practical rather than asking the user to switch terminals.",
+
+      "7. Ask the user only for irreducible human actions: credentials/2FA, physical interaction, purchase/payment, external communication, a genuinely ambiguous choice, or an irreversible/destructive action requiring approval.",
+
+      '8. If human action is required, include the literal marker "[CHATDOCK_HUMAN_NEEDED]" and explain the minimum required action. Do not provide an auto-runnable destructive block.',
+
+      '9. If the objective cannot progress, include "[CHATDOCK_BLOCKED]" and explain the blocker.',
+
+      '10. After EVERY executable code block, immediately add a very short line beginning "Durum:" summarizing what this step is doing or what will be verified. Maximum two short sentences.',
+
+      "11. When the objective is verified complete, give a concise completion summary and return NO executable code block.",
+
+      "12. Do not ask the user to copy terminal output, paste commands, or manually send routine run results. ChatDock owns that loop.",
+
+      "",
+
+      "Begin or continue the mission now."
+    ].join("\n");
+  }
+
+
+  async function missionSubmitUserText(
+    text
+  ) {
+    const raw =
+      String(text || "")
+        .trim();
+
+    if (!raw)
+      return false;
+
+    const m =
+      STATE.mission;
+
+    const resume =
+      !!m.objective
+      &&
+      (
+        m.active
+        ||
+        [
+          "HUMAN_NEEDED",
+          "BLOCKED",
+          "PAUSED"
+        ].includes(
+          m.status
+        )
+      );
+
+    if (!resume) {
+      m.id =
+        (
+          crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}_${Math.random()}`
+        )
+        .replace(
+          /[^A-Za-z0-9]/g,
+          ""
+        )
+        .slice(0, 24);
+
+      m.objective = raw;
+      m.step = 0;
+
+      m.lastRunHash = "";
+      m.dispatchingHash = "";
+
+      m.failSignature = "";
+      m.failCount = 0;
+
+      m.protocolErrors = 0;
+    }
+
+    else {
+      m.note =
+        "Kullanıcı mission'a ek bilgi verdi";
+    }
+
+    m.active = true;
+    m.status = "RUNNING";
+
+    m.baselineAssistant =
+      missionAssistantFingerprint();
+
+    m.lastAssistant =
+      m.baselineAssistant;
+
+    missionSave();
+    missionRender();
+
+    const prompt =
+      missionContract(
+        resume
+          ? (
+              m.objective
+              + "\n\nUser update: "
+              + raw
+            )
+          : raw,
+        resume
+          ? "UPDATE"
+          : "NEW"
+      );
+
+    if (
+      !insertComposer(
+        prompt
+      )
+    ) {
+      missionSet(
+        "BLOCKED",
+        "Mission contract composer'a yazılamadı"
+      );
+
+      m.active = false;
+      missionSave();
+      missionRender();
+
+      return false;
+    }
+
+    await sleep(80);
+
+    const ok =
+      await submitComposer();
+
+    if (!ok) {
+      m.active = false;
+
+      missionSet(
+        "BLOCKED",
+        "Mission mesajı gönderilemedi"
+      );
+
+      return false;
+    }
+
+    m.note =
+      resume
+        ? "Mission devam ediyor"
+        : "Mission ChatGPT'ye verildi";
+
+    missionSave();
+    missionRender();
+
+    return true;
+  }
+
+
+  async function missionProtocolCorrection(
+    reason
+  ) {
+    const m =
+      STATE.mission;
+
+    m.protocolErrors =
+      (m.protocolErrors || 0)
+      + 1;
+
+    if (
+      m.protocolErrors >= 3
+    ) {
+      m.active = false;
+
+      missionSet(
+        "BLOCKED",
+        "Mission protokolü 3 kez ihlal edildi"
+      );
+
+      return;
+    }
+
+    const el =
+      composer();
+
+    if (
+      composerText(el)
+        .trim()
+    ) {
+      m.active = false;
+
+      missionSet(
+        "HUMAN_NEEDED",
+        "Composer dolu; otomatik protokol düzeltmesi durdu"
+      );
+
+      return;
+    }
+
+    const payload = [
+      "[CHATDOCK_MISSION_PROTOCOL v1]",
+
+      `mission_id: ${m.id}`,
+
+      `problem: ${reason}`,
+
+      "",
+
+      "Continue the same mission.",
+
+      "If terminal execution is needed, return exactly ONE executable shell code block, followed immediately by a short 'Durum:' line.",
+
+      "If no terminal execution is needed and the objective is complete, return the verified completion summary with no code block."
+    ].join("\n");
+
+    if (
+      !insertComposer(
+        payload
+      )
+    )
+      return;
+
+    missionSet(
+      "VERIFYING",
+      "ChatGPT'den tek-adım mission formatı isteniyor"
+    );
+
+    await sleep(120);
+    await submitComposer();
+  }
+
+
+  function missionObserveRun(
+    script
+  ) {
+    const m =
+      STATE.mission;
+
+    if (!m?.active)
+      return;
+
+    const hash =
+      missionHash(script);
+
+    if (
+      m.dispatchingHash
+      &&
+      m.dispatchingHash ===
+        hash
+    ) {
+      m.dispatchingHash = "";
+      missionSave();
+      return;
+    }
+
+    m.lastRunHash =
+      hash;
+
+    m.step =
+      (m.step || 0)
+      + 1;
+
+    missionSet(
+      "RUNNING",
+      `Step ${m.step} çalışıyor`
+    );
+  }
+
+
+  function missionRunFinished(
+    run,
+    code,
+    output
+  ) {
+    const m =
+      STATE.mission;
+
+    if (!m?.active)
+      return;
+
+    if (code !== 0) {
+      const signature =
+        missionHash(
+          String(code)
+          + "|"
+          + String(
+              run?.command || ""
+            )
+          + "|"
+          + String(
+              output || ""
+            ).slice(-1200)
+        );
+
+      if (
+        signature ===
+        m.failSignature
+      ) {
+        m.failCount =
+          (m.failCount || 0)
+          + 1;
+      }
+
+      else {
+        m.failSignature =
+          signature;
+
+        m.failCount = 1;
+      }
+
+      if (
+        m.failCount >= 3
+      ) {
+        m.active = false;
+
+        missionSet(
+          "BLOCKED",
+          "Aynı hata 3 kez tekrarlandı; otomatik döngü durduruldu"
+        );
+
+        return;
+      }
+    }
+
+    else {
+      m.failSignature = "";
+      m.failCount = 0;
+    }
+
+    missionSet(
+      "VERIFYING",
+      `Step ${m.step} bitti · exit ${code} · ChatGPT doğruluyor`
+    );
+  }
+
+
+  async function missionScan() {
+    const m =
+      STATE.mission;
+
+    if (
+      !m?.active
+      ||
+      missionAssistantBusy()
+    )
+      return;
+
+    const assistant =
+      missionLatestAssistant();
+
+    if (!assistant)
+      return;
+
+    const fingerprint =
+      missionAssistantFingerprint(
+        assistant
+      );
+
+    if (
+      !fingerprint
+      ||
+      fingerprint ===
+        m.lastAssistant
+      ||
+      fingerprint ===
+        m.baselineAssistant
+    )
+      return;
+
+    const text =
+      assistant.innerText
+      || assistant.textContent
+      || "";
+
+    /*
+     * Response is considered stable because this scan is
+     * debounced after DOM mutations and generation must not
+     * currently expose a Stop button.
+     */
+
+    if (
+      text.includes(
+        "[CHATDOCK_HUMAN_NEEDED]"
+      )
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      m.active = false;
+
+      missionSet(
+        "HUMAN_NEEDED",
+        "ChatGPT insan müdahalesi bekliyor"
+      );
+
+      return;
+    }
+
+    if (
+      text.includes(
+        "[CHATDOCK_BLOCKED]"
+      )
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      m.active = false;
+
+      missionSet(
+        "BLOCKED",
+        "ChatGPT mission blocker bildirdi"
+      );
+
+      return;
+    }
+
+    const codes =
+      [
+        ...assistant.querySelectorAll(
+          "pre code"
+        )
+      ]
+      .map(
+        el =>
+          (
+            el.innerText
+            || el.textContent
+            || ""
+          ).trim()
+      )
+      .filter(Boolean);
+
+    /*
+     * A stable assistant response with no executable code
+     * means the contract says the objective is complete.
+     */
+    if (
+      codes.length === 0
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      m.active = false;
+      m.status = "DONE";
+      m.note =
+        "Mission tamamlandı";
+
+      missionSave();
+      missionRender();
+
+      return;
+    }
+
+    if (
+      codes.length !== 1
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      await missionProtocolCorrection(
+        `Assistant ${codes.length} code blocks returned; exactly one is required.`
+      );
+
+      return;
+    }
+
+    const script =
+      codes[0];
+
+    const runHash =
+      missionHash(script);
+
+    if (
+      runHash ===
+      m.lastRunHash
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      missionSave();
+      return;
+    }
+
+    if (
+      missionDangerousScript(
+        script
+      )
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      m.active = false;
+
+      missionSet(
+        "HUMAN_NEEDED",
+        "Riskli/oturum kesici komut otomatik çalıştırılmadı"
+      );
+
+      return;
+    }
+
+    if (
+      STATE.runs.size > 0
+    )
+      return;
+
+    if (
+      (m.step || 0) >=
+      (m.maxSteps || 30)
+    ) {
+      m.lastAssistant =
+        fingerprint;
+
+      m.active = false;
+
+      missionSet(
+        "BLOCKED",
+        `Mission ${m.maxSteps || 30} adım sınırına ulaştı`
+      );
+
+      return;
+    }
+
+    m.lastAssistant =
+      fingerprint;
+
+    m.lastRunHash =
+      runHash;
+
+    m.dispatchingHash =
+      runHash;
+
+    m.step =
+      (m.step || 0)
+      + 1;
+
+    m.status =
+      "RUNNING";
+
+    m.note =
+      `Step ${m.step} otomatik çalıştırılıyor`;
+
+    missionSave();
+    missionRender();
+
+    runCode(script);
+  }
+
+
+  function missionScheduleScan() {
+    clearTimeout(
+      missionScanTimer
+    );
+
+    missionScanTimer =
+      setTimeout(
+        missionScan,
+        2400
+      );
+  }
+
+
+  /*
+   * Compact mission status bar.
+   * It lives outside the historical top grid so it cannot
+   * re-introduce the dock overflow bug fixed in v0.11.1.
+   */
+
+  (() => {
+    if (
+      shadow.getElementById(
+        "missionbar"
+      )
+    )
+      return;
+
+    const bar =
+      document.createElement(
+        "div"
+      );
+
+    bar.id =
+      "missionbar";
+
+    bar.innerHTML = `
+      <span id="mission-dot">●</span>
+      <strong id="mission-state">IDLE</strong>
+      <span id="mission-step">Step —</span>
+      <span id="mission-objective">Mission bekleniyor</span>
+      <span id="mission-note"></span>
+      <button id="mission-auto">MISSION AUTO ON</button>
+      <button id="mission-stop">Stop</button>
+    `;
+
+    const style =
+      document.createElement(
+        "style"
+      );
+
+    style.textContent = `
+      #missionbar {
+        min-height: 34px;
+        box-sizing: border-box;
+
+        display: flex;
+        align-items: center;
+        gap: 7px;
+
+        padding: 5px 8px;
+
+        border-bottom:
+          1px solid rgba(255,255,255,.08);
+
+        background:
+          rgba(10,10,10,.96);
+
+        font-size: 10px;
+        line-height: 16px;
+
+        overflow: hidden;
+      }
+
+      #mission-dot {
+        font-size: 15px;
+        flex: 0 0 auto;
+      }
+
+      #mission-state,
+      #mission-step {
+        flex: 0 0 auto;
+      }
+
+      #mission-objective {
+        min-width: 50px;
+        flex: 1 1 auto;
+
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        opacity: .92;
+      }
+
+      #mission-note {
+        min-width: 0;
+        max-width: 190px;
+
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        opacity: .62;
+      }
+
+      #missionbar button {
+        flex: 0 0 auto;
+
+        padding:
+          3px
+          6px !important;
+
+        min-height: 23px;
+
+        font-size:
+          9px !important;
+      }
+
+      #dock.collapsed #missionbar {
+        display: none !important;
+      }
+    `;
+
+    shadow.appendChild(
+      style
+    );
+
+    const top =
+      shadow.getElementById(
+        "top"
+      );
+
+    top.insertAdjacentElement(
+      "afterend",
+      bar
+    );
+
+    shadow
+      .getElementById(
+        "mission-auto"
+      )
+      .addEventListener(
+        "click",
+        () => {
+          STATE.mission.auto =
+            !STATE.mission.auto;
+
+          missionSave();
+          missionRender();
+        }
+      );
+
+    shadow
+      .getElementById(
+        "mission-stop"
+      )
+      .addEventListener(
+        "click",
+        () => {
+          if (
+            !STATE.mission.active
+          )
+            return;
+
+          STATE.mission.active =
+            false;
+
+          missionSet(
+            "PAUSED",
+            "Mission kullanıcı tarafından durduruldu"
+          );
+        }
+      );
+
+    missionRender();
+  })();
+
+
+  /*
+   * Intercept ordinary ChatGPT sends while MISSION AUTO is ON.
+   * Run-result / mission-protocol messages bypass interception.
+   */
+
+  document.addEventListener(
+    "click",
+    ev => {
+      if (
+        !STATE.mission.auto
+      )
+        return;
+
+      const target =
+        ev.target;
+
+      const button =
+        target?.closest
+          ? target.closest(
+              'button[data-testid="send-button"],'
+              + 'button[aria-label="Send prompt"],'
+              + 'button[aria-label="Gönder"],'
+              + 'button[aria-label*="Send"],'
+              + 'button[aria-label*="Gönder"]'
+            )
+          : null;
+
+      if (!button)
+        return;
+
+      const text =
+        composerText(
+          composer()
+        ).trim();
+
+      if (
+        !text
+        ||
+        missionBypassText(text)
+      )
+        return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+
+      missionSubmitUserText(
+        text
+      );
+    },
+    true
+  );
+
+
+  document.addEventListener(
+    "keydown",
+    ev => {
+      if (
+        !STATE.mission.auto
+        ||
+        ev.key !== "Enter"
+        ||
+        ev.shiftKey
+        ||
+        ev.ctrlKey
+        ||
+        ev.altKey
+        ||
+        ev.metaKey
+        ||
+        ev.isComposing
+      )
+        return;
+
+      const el =
+        composer();
+
+      if (
+        !el
+        ||
+        !(
+          ev.target === el
+          ||
+          el.contains?.(
+            ev.target
+          )
+        )
+      )
+        return;
+
+      const text =
+        composerText(el)
+          .trim();
+
+      if (
+        !text
+        ||
+        missionBypassText(text)
+      )
+        return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+
+      missionSubmitUserText(
+        text
+      );
+    },
+    true
+  );
+
+
+  /*
+   * Debounced assistant-response watcher.
+   */
+
+  new MutationObserver(
+    missionScheduleScan
+  ).observe(
+    document.documentElement,
+    {
+      subtree: true,
+      childList: true,
+      characterData: true
+    }
+  );
+
+
+  /*
+   * Restore per-chat mission state after conversation metadata
+   * has had time to initialise.
+   */
+
+  setTimeout(
+    () => {
+      missionRestore();
+      missionScheduleScan();
+    },
+    900
+  );
 
 
   function installCodeButtons() {
@@ -3411,21 +4148,68 @@
   port.onMessage.addListener(
     msg => {
 
+      /*
+       * v0.11 health observer.
+       * Existing ChatDock message flow continues below.
+       */
+
+      if (
+        msg?.__chatdock_ctl ===
+        "open"
+      ) {
+        healthMark(
+          "native",
+          true,
+          "Native Messaging bağlı"
+        );
+
+        healthMark(
+          "zaku",
+          null,
+          "Zaku kontrol ediliyor"
+        );
+
+        healthMark(
+          "canavar",
+          null,
+          "Canavar kontrol ediliyor"
+        );
+
+        queueMicrotask(
+          requestHealth
+        );
+      }
+
+      if (
+        msg?.__chatdock_ctl ===
+        "close"
+      ) {
+        resetHealth(
+          false,
+          msg?.error
+            || "Native Messaging bağlantısı kesildi"
+        );
+      }
+
+      if (
+        msg?.type ===
+        "health"
+      ) {
+        applyHealth(msg);
+        return;
+      }
+
+
       if (
         msg?.__chatdock_ctl ===
         "open"
       ) {
 
-        companionUi(
-          false
-        );
-
-
         STATE.bridge =
           true;
 
         status(
-          "bridge bağlı"
+          "zaku bağlı"
         );
 
 
@@ -3462,37 +4246,6 @@
         msg?.__chatdock_ctl ===
         "close"
       ) {
-
-        if (
-          msg?.companion_required
-        ) {
-
-          STATE.bridge =
-            false;
-
-          status(
-            "Companion gerekli"
-          );
-
-          companionUi(
-            true,
-            msg?.error || ""
-          );
-
-          toast(
-            "ChatDock Companion gerekli · Companion kur"
-          );
-
-          refreshRail();
-
-          return;
-        }
-
-
-        companionUi(
-          false
-        );
-
 
         STATE.bridge =
           false;
@@ -3548,15 +4301,60 @@
       if (!t)
         return;
 
+      if (
+        msg.type ===
+        "redrawn"
+      ) {
+        clearTimeout(
+          t.redrawFallbackTimer
+        );
+
+        /*
+         * refresh-client has now requested a complete tmux repaint.
+         * Give the output queue one frame to land before revealing it.
+         */
+        requestAnimationFrame(
+          () => {
+            requestAnimationFrame(
+              () => {
+                t.attachVisualReady =
+                  true;
+
+                t.attachCleanUntil =
+                  0;
+
+                t.slot.classList.add(
+                  "chatdock-terminal-ready"
+                );
+
+                try {
+                  fit(t);
+                }
+                catch (_) {}
+              }
+            );
+          }
+        );
+
+        return;
+      }
+
 
       if (
         msg.type ===
         "output"
       ) {
+        const terminalData =
+          cleanAttachNoise(
+            t,
+            msg.data
+          );
 
-        t.term.write(
-          msg.data
-        );
+        if (terminalData) {
+          t.term.write(
+            terminalData
+          );
+        }
 
         status(
           `${t.host} bağlı`
@@ -3568,14 +4366,64 @@
         msg.type ===
         "opened"
       ) {
+        /*
+         * v0.12.2:
+         * discard the transient xterm visual state created while
+         * tmux and xterm negotiate capabilities, then ask tmux for
+         * a complete repaint from its clean pane buffer.
+         */
+        t.attachVisualReady =
+          false;
+
+        t.slot.classList.remove(
+          "chatdock-terminal-ready"
+        );
+
+        try {
+          t.term.reset();
+        }
+        catch (_) {}
+
+        requestAnimationFrame(
+          () => {
+            fit(t);
+
+            send({
+              type: "redraw",
+              session: t.id
+            });
+          }
+        );
+
+        clearTimeout(
+          t.redrawFallbackTimer
+        );
+
+        t.redrawFallbackTimer =
+          setTimeout(
+            () => {
+              /*
+               * Never leave a terminal invisible if refresh-client
+               * fails for an unusual tmux version.
+               */
+              t.attachVisualReady =
+                true;
+
+              t.slot.classList.add(
+                "chatdock-terminal-ready"
+              );
+            },
+            900
+          );
+
+        healthMark(
+          t.host,
+          true,
+          `${t.host} terminal bağlantısı açık`
+        );
 
         status(
           `${t.host} bağlı`
-        );
-
-        requestAnimationFrame(
-          () =>
-            fit(t)
         );
       }
 
@@ -3612,238 +4460,6 @@
       }
     }
   );
-
-
-  shadow
-    .getElementById(
-      "rail-terminal"
-    )
-    .addEventListener(
-      "click",
-      () => {
-
-        setDrawerOpen(
-          STATE.collapsed
-        );
-
-      }
-    );
-
-
-  shadow
-    .getElementById(
-      "rail-mission"
-    )
-    .addEventListener(
-      "click",
-      () => {
-
-        setDrawerOpen(
-          true
-        );
-
-        setTimeout(
-          openMissionPanel,
-          30
-        );
-
-      }
-    );
-
-
-  shadow
-    .getElementById(
-      "rail-new"
-    )
-    .addEventListener(
-      "click",
-      () => {
-
-        setDrawerOpen(
-          true
-        );
-
-        addOwned(
-          shadow
-            .getElementById(
-              "host"
-            )
-            .value
-          ||
-          "zaku"
-        );
-
-      }
-    );
-
-
-  shadow
-    .getElementById(
-      "rail-sessions"
-    )
-    .addEventListener(
-      "click",
-      () => {
-
-        setDrawerOpen(
-          true
-        );
-
-        showSessions();
-
-      }
-    );
-
-
-  document.addEventListener(
-    "keydown",
-    e => {
-
-      if (
-        e.key ===
-        "Escape"
-      ) {
-
-        const missionPanel =
-          shadow.getElementById(
-            "missionpanel"
-          );
-
-        const picker =
-          shadow.getElementById(
-            "picker"
-          );
-
-
-        if (
-          missionPanel
-            ?.classList
-            .contains(
-              "open"
-            )
-        ) {
-
-          missionPanel
-            .classList
-            .remove(
-              "open"
-            );
-
-          return;
-        }
-
-
-        if (
-          picker
-            ?.classList
-            .contains(
-              "open"
-            )
-        ) {
-
-          picker
-            .classList
-            .remove(
-              "open"
-            );
-
-          return;
-        }
-
-
-        if (!STATE.collapsed) {
-
-          setDrawerOpen(
-            false
-          );
-
-        }
-      }
-
-    },
-    true
-  );
-
-
-  shadow
-    .getElementById(
-      "mission"
-    )
-    .addEventListener(
-      "click",
-      openMissionPanel
-    );
-
-
-  shadow
-    .getElementById(
-      "missionclose"
-    )
-    .addEventListener(
-      "click",
-      () =>
-        shadow
-          .getElementById(
-            "missionpanel"
-          )
-          .classList
-          .remove(
-            "open"
-          )
-    );
-
-
-  shadow
-    .getElementById(
-      "missionstart"
-    )
-    .addEventListener(
-      "click",
-      () =>
-        startMission(
-          shadow
-            .getElementById(
-              "missiongoal"
-            )
-            .value,
-
-          shadow
-            .getElementById(
-              "missionextra"
-            )
-            .value,
-
-          false
-        )
-    );
-
-
-  shadow
-    .getElementById(
-      "missionend"
-    )
-    .addEventListener(
-      "click",
-      endMission
-    );
-
-
-  shadow
-    .getElementById(
-      "automission"
-    )
-    .addEventListener(
-      "click",
-      async () => {
-
-        STATE.autoMission =
-          !STATE.autoMission;
-
-        await saveGlobalSettings();
-
-        refreshMissionUi();
-      }
-    );
 
 
   shadow
@@ -3885,6 +4501,10 @@
 
         STATE.autoSend =
           !STATE.autoSend;
+        localStorage.setItem(
+          "zaku-chatdock:autoSend",
+          STATE.autoSend ? "1" : "0"
+        );
 
 
         shadow
@@ -3907,10 +4527,11 @@
       "click",
       () => {
 
-        setDrawerOpen(
-          false
-        );
+        STATE.collapsed =
+          !STATE.collapsed;
 
+        syncRail();
+        saveMeta();
       }
     );
 
@@ -3950,101 +4571,6 @@
     e => {
 
       if (
-        e.composedPath
-        &&
-        e.composedPath()
-          .includes(root)
-      )
-        return;
-
-
-      if (
-        e.key === "Enter"
-        &&
-        !e.shiftKey
-        &&
-        !e.isComposing
-      ) {
-
-        const goal =
-          autoMissionCandidate();
-
-
-        if (goal) {
-
-          e.preventDefault();
-          e.stopImmediatePropagation();
-
-          startMission(
-            goal,
-            "",
-            true
-          );
-
-          return;
-        }
-      }
-    },
-    true
-  );
-
-
-  document.addEventListener(
-    "click",
-    e => {
-
-      if (
-        e.composedPath
-        &&
-        e.composedPath()
-          .includes(root)
-      )
-        return;
-
-
-      const target =
-        e.target
-          ?.closest
-          ?.(
-            'button[data-testid="send-button"],' +
-            'button[aria-label="Send prompt"],' +
-            'button[aria-label="Gönder"],' +
-            'button[aria-label*="Send"],' +
-            'button[aria-label*="Gönder"]'
-          );
-
-
-      if (!target)
-        return;
-
-
-      const goal =
-        autoMissionCandidate();
-
-
-      if (!goal)
-        return;
-
-
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-
-      startMission(
-        goal,
-        "",
-        true
-      );
-    },
-    true
-  );
-
-
-  document.addEventListener(
-    "keydown",
-    e => {
-
-      if (
         e.ctrlKey
         &&
         e.shiftKey
@@ -4056,17 +4582,32 @@
         e.preventDefault();
 
 
-        setDrawerOpen(
-          STATE.collapsed
-        );
+        STATE.panelOpen =
+          !STATE.panelOpen;
 
 
-        if (!STATE.collapsed) {
+        dock
+          .classList
+          .toggle(
+            "hidden",
+            !STATE.panelOpen
+          );
+
+
+        if (
+          STATE.panelOpen
+        ) {
+
+          syncRail();
 
           const t =
             active();
 
-          if (t) {
+
+          if (
+            t &&
+            !STATE.collapsed
+          ) {
 
             requestAnimationFrame(
               () => {
@@ -4074,7 +4615,6 @@
                 fit(t);
 
                 t.term.focus();
-
               }
             );
           }
@@ -4191,6 +4731,16 @@
 
 
   async function init() {
+    const autoSendButton =
+      shadow.getElementById("autosend");
+
+    if (autoSendButton) {
+      autoSendButton.textContent =
+        STATE.autoSend
+          ? "AUTO→CHAT ON"
+          : "AUTO→CHAT OFF";
+    }
+
 
     const info =
       conversationInfo();
@@ -4210,105 +4760,8 @@
       STATE.title;
 
 
-    const settingsResult =
-      await browser
-        .storage
-        .local
-        .get(
-          "chatdock:v08:settings"
-        );
-
-
-    const settings =
-      settingsResult[
-        "chatdock:v08:settings"
-      ]
-      ||
-      {};
-
-
-    if (
-      typeof settings.autoMission ===
-      "boolean"
-    ) {
-
-      STATE.autoMission =
-        settings.autoMission;
-    }
-
-
-    let meta =
+    const meta =
       await loadMeta();
-
-
-    if (meta?.mission) {
-
-      STATE.mission = {
-        enabled:
-          !!meta.mission.enabled,
-        goal:
-          meta.mission.goal || "",
-        extra:
-          meta.mission.extra || "",
-        seeded:
-          !!meta.mission.seeded
-      };
-    }
-
-
-    if (
-      !meta?.mission
-      &&
-      STATE.convoId
-    ) {
-
-      const pendingResult =
-        await browser
-          .storage
-          .local
-          .get(
-            "chatdock:v08:pendingMission"
-          );
-
-
-      const pending =
-        pendingResult[
-          "chatdock:v08:pendingMission"
-        ];
-
-
-      if (
-        pending
-        &&
-        (
-          Date.now()
-          -
-          Number(
-            pending.ts || 0
-          )
-        )
-        <
-        120000
-      ) {
-
-        STATE.mission = {
-          enabled: true,
-          goal:
-            pending.goal || "",
-          extra:
-            pending.extra || "",
-          seeded: true
-        };
-
-
-        await browser
-          .storage
-          .local
-          .remove(
-            "chatdock:v08:pendingMission"
-          );
-      }
-    }
 
 
     if (
@@ -4342,7 +4795,6 @@
     }
 
     syncRail();
-    refreshMissionUi();
 
 
     if (
@@ -4460,5 +4912,12 @@
 
 
   init();
+
+  // v0.11 host health refresh.
+  setInterval(
+    requestHealth,
+    15000
+  );
+
 
 })();

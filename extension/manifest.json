@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Zaku ChatDock",
-  "version": "0.9.0",
+  "version": "0.12.5",
   "description": "Per-chat Zaku and Canavar terminal workspaces inside ChatGPT.",
   "browser_specific_settings": {
     "gecko": {

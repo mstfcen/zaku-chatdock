@@ -6,9 +6,11 @@ Each conversation can own its own terminal session. Local sessions
 survive drawer/browser navigation through tmux, and optional remote
 sessions can use SSH.
 
-Current development version: **0.9.0 release candidate**
+Current development version: **0.12.5**
 
 ## What it provides
+
+- Mission Engine for autonomous inspect → act → verify workflows
 
 - one persistent tmux workspace per ChatGPT conversation
 - Local and optional Remote terminals
@@ -199,7 +201,7 @@ ChatGPT conversation.
 
 ## Status
 
-0.9.0 is currently a public-release candidate.
+0.12.5 is the current public development release.
 
 The Firefox AMO Listed workflow is prepared but public store
 publication is intentionally not performed automatically.
