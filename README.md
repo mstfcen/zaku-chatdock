@@ -6,7 +6,7 @@ Each conversation can own its own terminal session. Local sessions
 survive drawer/browser navigation through tmux, and optional remote
 sessions can use SSH.
 
-Current development version: **0.12.5**
+Current development version: **0.12.6**
 
 <!-- CHATDOCK_QUICK_INSTALL_START -->
 ## Quick install

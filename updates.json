@@ -3,9 +3,9 @@
     "chatdock@zaku.local": {
       "updates": [
         {
-          "version": "0.12.5",
-          "update_link": "https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.5/zaku-chatdock-firefox.xpi",
-          "update_hash": "sha256:bc9b5e6ce2b2b93afe288c7d919fbc31743983692d7976ea641136d57fcefd4f"
+          "version": "0.12.6",
+          "update_link": "https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.6/Zaku-ChatDock-Firefox-Signed.xpi",
+          "update_hash": "sha256:1bf1e64eeb014a9faa375ff73af3202febea6a928d1ad18fe3418a7b32232a5f"
         }
       ]
     }
