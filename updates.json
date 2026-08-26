@@ -1,7 +1,13 @@
 {
   "addons": {
     "chatdock@zaku.local": {
-      "updates": []
+      "updates": [
+        {
+          "version": "0.12.5",
+          "update_link": "https://github.com/mstfcen/zaku-chatdock/releases/download/v0.12.5/zaku-chatdock-firefox.xpi",
+          "update_hash": "sha256:bc9b5e6ce2b2b93afe288c7d919fbc31743983692d7976ea641136d57fcefd4f"
+        }
+      ]
     }
   }
 }
