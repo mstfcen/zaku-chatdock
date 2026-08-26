@@ -42,6 +42,11 @@ bash -n scripts/install.sh
 bash -n scripts/bootstrap.sh
 bash -n scripts/uninstall.sh
 bash -n scripts/check.sh
+bash -n scripts/build-companion-deb.sh
+bash -n scripts/companion-bootstrap.sh
+bash -n scripts/install-companion.sh
+bash -n packaging/linux/companion-wrapper.sh
+bash -n packaging/linux/register-native-hosts.sh
 
 echo "[5/6] git whitespace"
 

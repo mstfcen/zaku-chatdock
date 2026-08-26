@@ -15,8 +15,10 @@ CHROMIUM_NMHS=(
   "$HOME/.config/chromium/NativeMessagingHosts"
   "$HOME/.config/google-chrome/NativeMessagingHosts"
   "$HOME/.config/google-chrome-beta/NativeMessagingHosts"
+  "$HOME/.config/google-chrome-unstable/NativeMessagingHosts"
   "$HOME/.config/opera/NativeMessagingHosts"
   "$HOME/.config/opera-beta/NativeMessagingHosts"
+  "$HOME/.config/opera-developer/NativeMessagingHosts"
   "$HOME/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts"
 )
 

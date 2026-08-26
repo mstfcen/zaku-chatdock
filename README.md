@@ -8,6 +8,40 @@ sessions can use SSH.
 
 Current development version: **0.12.5**
 
+<!-- CHATDOCK_QUICK_INSTALL_START -->
+## Quick install
+
+> **Linux is currently the supported desktop platform for the ChatDock Companion.**
+
+### Firefox
+
+The XPI files on GitHub Releases are reproducible build artifacts, but regular Firefox requires a Mozilla-signed extension.
+
+The intended public one-click path is the Firefox Add-ons (AMO) listing. Until that listing is live, Firefox Developer Edition can be used for development/testing.
+
+### Chromium / Chrome / Opera / Brave
+
+1. Download `Zaku-ChatDock-Chromium-v0.12.5.zip` from the **Latest Release**:
+   <https://github.com/mstfcen/zaku-chatdock/releases/latest>
+2. Extract the ZIP.
+3. Open the browser extensions page and enable **Developer mode**.
+4. Choose **Load unpacked** and select the extracted folder.
+5. Install the ChatDock Companion below and restart the browser.
+
+### ChatDock Companion
+
+ChatDock uses Native Messaging to reach your local terminal.
+
+On Debian/Ubuntu-family Linux, install the Companion once:
+
+    curl -fsSL https://raw.githubusercontent.com/mstfcen/zaku-chatdock/main/scripts/companion-bootstrap.sh | bash
+
+Or download `zaku-chatdock-companion_0.12.5_all.deb` from the Latest Release and open it with your package installer.
+
+**Latest Release:** <https://github.com/mstfcen/zaku-chatdock/releases/latest>
+
+<!-- CHATDOCK_QUICK_INSTALL_END -->
+
 ## What it provides
 
 - Mission Engine for autonomous inspect → act → verify workflows

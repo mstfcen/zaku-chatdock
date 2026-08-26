@@ -16,3 +16,5 @@ signed/
 dist/*.zip
 dist/build/
 dist/unpacked/
+
+dist/companion/
