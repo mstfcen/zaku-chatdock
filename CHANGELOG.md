@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.6 — accessible signed distribution
+
+- fix Mozilla lint by replacing dynamic terminal-tab innerHTML with safe DOM construction
+- publish a Mozilla-signable version distinct from the already-reserved 0.12.5 submission
+- package the Linux Native Messaging Companion as a Debian/Ubuntu .deb
+- add a one-command Companion bootstrap installer with SHA-256 verification
+- add a first-time-user Quick Install path
+- provide permanent Latest Release download aliases for Firefox, Chromium, and Companion
+
 ## 0.12.5 — Mission Engine and terminal polish
 
 - add Mission Engine v1 for autonomous inspect → act → verify workflows

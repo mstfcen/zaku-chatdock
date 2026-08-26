@@ -12,8 +12,8 @@ Zaku ChatDock Companion bootstrap
 
 Usage:
   companion-bootstrap.sh
-  companion-bootstrap.sh --version 0.12.5
-  companion-bootstrap.sh --local ./zaku-chatdock-companion_0.12.5_all.deb
+  companion-bootstrap.sh --version 0.12.6
+  companion-bootstrap.sh --local ./zaku-chatdock-companion_0.12.6_all.deb
   companion-bootstrap.sh --dry-run [--local FILE]
 
 Default:

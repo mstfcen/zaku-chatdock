@@ -1,17 +1,17 @@
 # Zaku ChatDock Companion — Linux
 
-Current package version: **0.12.5**
+Current package version: **0.12.6**
 
 ## Easiest installation
 
 Download:
 
-`zaku-chatdock-companion_0.12.5_all.deb`
+`zaku-chatdock-companion_0.12.6_all.deb`
 
 Then either double-click it in Ubuntu/Debian's package installer or run:
 
 ```bash
-sudo apt install ./zaku-chatdock-companion_0.12.5_all.deb
+sudo apt install ./zaku-chatdock-companion_0.12.6_all.deb
 ```
 
 Restart the browser afterwards.
