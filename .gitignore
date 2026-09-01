@@ -16,3 +16,13 @@ signed/
 dist/*.zip
 dist/build/
 dist/unpacked/
+.env.*
+*.pem
+*.key
+*.sqlite
+*.db
+*.db-*
+dist/
+build/
+coverage/
+.cache/
